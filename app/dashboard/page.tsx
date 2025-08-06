@@ -1,34 +1,52 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { RoleBasedDashboard } from "@/components/role-based-dashboard"
+import { UserRole } from "@/lib/auth-client"
 
 export default function DashboardPage() {
+  const [user, setUser] = useState<{ id: string; name: string; email: string; role: UserRole } | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // Get user data from localStorage
+    const userData = localStorage.getItem("user")
+    if (userData) {
+      const parsedUser = JSON.parse(userData)
+      console.log('Dashboard: User data from localStorage:', parsedUser)
+      setUser(parsedUser)
+    }
+    setIsLoading(false)
+  }, [])
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+            <p className="mt-2 text-gray-600">Loading dashboard...</p>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (!user) {
+    return (
+      <DashboardLayout>
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-2">No User Data</h2>
+          <p className="text-muted-foreground">Please log in to access your dashboard.</p>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Welcome to Your Dashboard</h1>
-          <p className="text-muted-foreground">Track your coaching progress and milestones</p>
-        </div>
-
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <div className="p-6 bg-white rounded-lg shadow">
-            <h3 className="text-lg font-semibold mb-2">My Programs</h3>
-            <p className="text-sm text-muted-foreground">View your enrolled coaching programs</p>
-          </div>
-
-          <div className="p-6 bg-white rounded-lg shadow">
-            <h3 className="text-lg font-semibold mb-2">Progress</h3>
-            <p className="text-sm text-muted-foreground">Track your milestone completion</p>
-          </div>
-
-          <div className="p-6 bg-white rounded-lg shadow">
-            <h3 className="text-lg font-semibold mb-2">Payments</h3>
-            <p className="text-sm text-muted-foreground">Manage your payment history</p>
-          </div>
-        </div>
-      </div>
+      <RoleBasedDashboard user={user} />
     </DashboardLayout>
   )
 }

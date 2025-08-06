@@ -13,7 +13,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 interface DashboardLayoutProps {
   children: React.ReactNode
-  isAdmin?: boolean
 }
 
 const coachingOffers = [
@@ -22,8 +21,8 @@ const coachingOffers = [
   { id: "sales-excellence", name: "Sales Excellence" },
 ]
 
-export function DashboardLayout({ children, isAdmin = false }: DashboardLayoutProps) {
-  const [user, setUser] = useState<{ email: string; name: string } | null>(null)
+export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null)
   const [selectedOffer, setSelectedOffer] = useState("business-growth")
   const router = useRouter()
 
@@ -61,6 +60,10 @@ export function DashboardLayout({ children, isAdmin = false }: DashboardLayoutPr
     return <div>Loading...</div>
   }
 
+  const isAdmin = user.role === 'super_admin'
+  const isCoach = user.role === 'coach'
+  const isCustomer = user.role === 'customer'
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -69,7 +72,7 @@ export function DashboardLayout({ children, isAdmin = false }: DashboardLayoutPr
           <div className="flex items-center gap-6">
             <h1 className="text-2xl font-bold text-gray-900">COACHING XYZ</h1>
 
-            {!isAdmin && (
+            {isCustomer && (
               <Select value={selectedOffer} onValueChange={setSelectedOffer}>
                 <SelectTrigger className="w-64">
                   <SelectValue />
@@ -89,7 +92,9 @@ export function DashboardLayout({ children, isAdmin = false }: DashboardLayoutPr
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">{isAdmin ? "Admin Account" : user.name}</span>
+                  <span className="text-sm text-gray-600">
+                    {isAdmin ? "Admin Account" : user.name}
+                  </span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>

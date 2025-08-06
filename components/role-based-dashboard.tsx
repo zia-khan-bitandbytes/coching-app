@@ -16,6 +16,10 @@ interface RoleBasedDashboardProps {
 }
 
 export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
+  // Debug logging
+  console.log('RoleBasedDashboard rendered with user:', user)
+  console.log('User role:', user.role)
+  
   const renderCustomerDashboard = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">

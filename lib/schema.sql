@@ -1,3 +1,13 @@
+-- Create coaching_programs table
+CREATE TABLE IF NOT EXISTS coaching_programs (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  duration_weeks INTEGER,
+  price DECIMAL(10,2),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (
   id SERIAL PRIMARY KEY,
@@ -17,19 +27,10 @@ CREATE TABLE IF NOT EXISTS reset_tokens (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create programs table
-CREATE TABLE IF NOT EXISTS programs (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  coach_id INTEGER REFERENCES users(id),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- Create milestones table
 CREATE TABLE IF NOT EXISTS milestones (
   id SERIAL PRIMARY KEY,
-  program_id INTEGER REFERENCES programs(id),
+  program_id INTEGER REFERENCES coaching_programs(id),
   title VARCHAR(255) NOT NULL,
   description TEXT,
   order_index INTEGER NOT NULL,
@@ -40,7 +41,7 @@ CREATE TABLE IF NOT EXISTS milestones (
 CREATE TABLE IF NOT EXISTS user_programs (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
-  program_id INTEGER REFERENCES programs(id),
+  program_id INTEGER REFERENCES coaching_programs(id),
   enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_id, program_id)
 );
@@ -60,10 +61,21 @@ CREATE TABLE IF NOT EXISTS milestone_progress (
 CREATE TABLE IF NOT EXISTS payments (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id),
-  program_id INTEGER REFERENCES programs(id),
+  program_id INTEGER REFERENCES coaching_programs(id),
   amount DECIMAL(10,2) NOT NULL,
   status VARCHAR(50) DEFAULT 'pending',
   payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create user_milestones table
+CREATE TABLE IF NOT EXISTS user_milestones (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  milestone_id INTEGER REFERENCES milestones(id),
+  completed BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, milestone_id)
 );
 
 -- Create indexes for better performance
