@@ -14,6 +14,7 @@ import { RoadmapProvider, useRoadmap } from "@/contexts/roadmap-context"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
+  isAdmin?: boolean
 }
 
 const coachingOffers = [
@@ -52,7 +53,7 @@ function RoadmapDropdown() {
   )
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLayoutProps) {
   const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null)
   const [selectedOffer, setSelectedOffer] = useState("business-growth")
   const router = useRouter()
@@ -91,7 +92,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return <div>Loading...</div>
   }
 
-  const isAdmin = user.role === 'super_admin'
+  const isAdmin = propsIsAdmin || user.role === 'super_admin'
   const isCoach = user.role === 'coach'
   const isCustomer = user.role === 'customer'
 
@@ -102,7 +103,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <RoadmapDropdown />
+            {!isAdmin ? (
+              <RoadmapDropdown />
+            ) : (
+              <h1 className="text-2xl font-bold text-gray-900">COACHING XYZ</h1>
+            )}
 
             {isCustomer && (
               <Select value={selectedOffer} onValueChange={setSelectedOffer}>
@@ -121,20 +126,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">
-                    {isAdmin ? "Admin Account" : user.name}
-                  </span>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isAdmin ? (
-                  <DropdownMenuItem onClick={switchToClient}>Switch to Client View</DropdownMenuItem>
-                ) : (
+            {!isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">
+                      {user.name}
+                    </span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
+<<<<<<< Updated upstream
                 )}
                 {isCustomer && (
                   <DropdownMenuItem asChild>
@@ -142,11 +146,30 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={handleLogout}>
+=======
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Admin Account</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="text-gray-600 hover:text-gray-900"
+                >
+>>>>>>> Stashed changes
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </Button>
+              </div>
+            )}
 
             <Avatar>
               <AvatarFallback>

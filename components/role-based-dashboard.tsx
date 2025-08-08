@@ -1153,60 +1153,142 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
   }
 
   const renderSuperAdminDashboard = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Super Admin Dashboard</h1>
-          <p className="text-muted-foreground">Full system administration and management</p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden bg-white border-b border-gray-100">
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-gray-900 to-black opacity-5"></div>
+        <div className="relative max-w-7xl mx-auto px-6 py-20">
+          <div className="text-center">
+            <div className="mb-8">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-black rounded-full mb-6">
+                <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <h1 className="text-5xl font-bold text-gray-900 mb-4">
+                Welcome, Super Administrator
+              </h1>
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+                You have complete administrative control over the COACHING XYZ platform. 
+                Manage users, monitor system performance, and oversee all coaching operations from this centralized dashboard.
+              </p>
+            </div>
+            
+            <div className="flex justify-center space-x-4 mb-12">
+              <div className="flex items-center text-gray-700">
+                <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                <span className="text-sm font-medium">System Online</span>
+              </div>
+              <div className="flex items-center text-gray-700">
+                <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                <span className="text-sm font-medium">All Services Active</span>
+              </div>
+              <div className="flex items-center text-gray-700">
+                <div className="w-2 h-2 bg-gray-900 rounded-full mr-2"></div>
+                <span className="text-sm font-medium">Administrator Access</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <Badge variant="secondary">{getRoleDisplayName(user.role)}</Badge>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>User Management</CardTitle>
-            <CardDescription>Manage all users and roles</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">45 total users</p>
-              <Button asChild className="w-full">
-                <Link href="/admin/members">Manage Users</Link>
-              </Button>
+      {/* Stats Section */}
+      <div className="max-w-7xl mx-auto px-6 py-16">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16">
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center shadow-sm hover:shadow-md transition-shadow">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-4">
+              <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+              </svg>
             </div>
-          </CardContent>
-        </Card>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">System</h3>
+            <p className="text-gray-600 text-sm">Operational</p>
+          </div>
+          
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center shadow-sm hover:shadow-md transition-shadow">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-4">
+              <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2-2z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Platform</h3>
+            <p className="text-gray-600 text-sm">Monitoring</p>
+          </div>
+          
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center shadow-sm hover:shadow-md transition-shadow">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-4">
+              <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Performance</h3>
+            <p className="text-gray-600 text-sm">Optimized</p>
+          </div>
+          
+          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center shadow-sm hover:shadow-md transition-shadow">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-lg mb-4">
+              <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Security</h3>
+            <p className="text-gray-600 text-sm">Protected</p>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>System Overview</CardTitle>
-            <CardDescription>Monitor system performance and usage</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">98% uptime this month</p>
-              <Button asChild className="w-full">
-                <Link href="/admin/overview">View Overview</Link>
-              </Button>
+        {/* Administrative Message */}
+        <div className="bg-gradient-to-r from-gray-900 via-black to-gray-900 rounded-2xl p-12 text-center text-white">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-3xl font-bold mb-6">Administrative Control Center</h2>
+            <p className="text-lg text-gray-300 mb-8 leading-relaxed">
+              As the Super Administrator, you maintain oversight of all platform operations. 
+              Your role ensures the seamless delivery of coaching services and maintains the highest 
+              standards of user experience across the entire COACHING XYZ ecosystem.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-white bg-opacity-10 rounded-xl mb-4">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">System Management</h3>
+                <p className="text-gray-300 text-sm">Complete control over platform configuration and settings</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-white bg-opacity-10 rounded-xl mb-4">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">User Oversight</h3>
+                <p className="text-gray-300 text-sm">Monitor and manage all coaches and customers</p>
+              </div>
+              
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-white bg-opacity-10 rounded-xl mb-4">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 00-2-2z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Analytics & Reports</h3>
+                <p className="text-gray-300 text-sm">Comprehensive insights into platform performance</p>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Payments & Revenue</CardTitle>
-            <CardDescription>Track all payments and revenue</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">$12,450 total revenue</p>
-              <Button asChild className="w-full">
-                <Link href="/admin/payments">View Payments</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Footer Message */}
+        <div className="text-center mt-16">
+          <p className="text-gray-600 text-lg">
+            Welcome back to <span className="font-semibold text-gray-900">COACHING XYZ</span> Administration Portal
+          </p>
+          <p className="text-gray-500 text-sm mt-2">
+            Logged in as Super Administrator • All systems operational
+          </p>
+        </div>
       </div>
     </div>
   )
