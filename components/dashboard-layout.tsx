@@ -10,6 +10,7 @@ import { AdminSidebar } from "@/components/admin-sidebar"
 import { useRouter } from "next/navigation"
 import { User, LogOut, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { RoadmapProvider, useRoadmap } from "@/contexts/roadmap-context"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -20,6 +21,36 @@ const coachingOffers = [
   { id: "leadership", name: "Leadership Mastery" },
   { id: "sales-excellence", name: "Sales Excellence" },
 ]
+
+function RoadmapDropdown() {
+  const { roadmaps, selectedRoadmapId, selectRoadmap } = useRoadmap()
+  
+  return (
+    <div className="flex items-center">
+      <h1 className="text-2xl font-bold text-gray-900">COACHING XYZ</h1>
+      <div className="ml-20">
+        <Select value={selectedRoadmapId || ""} onValueChange={selectRoadmap}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder={roadmaps.length > 0 ? "Select roadmap" : "No roadmaps"} />
+          </SelectTrigger>
+          <SelectContent>
+            {roadmaps.length > 0 ? (
+              roadmaps.map((roadmap) => (
+                <SelectItem key={roadmap.id} value={roadmap.id}>
+                  {roadmap.name}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="empty" disabled>
+                No roadmaps
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  )
+}
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null)
@@ -65,12 +96,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const isCustomer = user.role === 'customer'
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <RoadmapProvider>
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <h1 className="text-2xl font-bold text-gray-900">COACHING XYZ</h1>
+            <RoadmapDropdown />
 
             {isCustomer && (
               <Select value={selectedOffer} onValueChange={setSelectedOffer}>
@@ -125,5 +157,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
+    </RoadmapProvider>
   )
 }
