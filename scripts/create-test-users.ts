@@ -18,6 +18,30 @@ async function createTestUsers() {
         role: 'customer'
       },
       {
+        name: 'John Smith',
+        email: 'john@test.com',
+        password: hashedPassword,
+        role: 'customer'
+      },
+      {
+        name: 'Sarah Johnson',
+        email: 'sarah@test.com',
+        password: hashedPassword,
+        role: 'customer'
+      },
+      {
+        name: 'Mike Chen',
+        email: 'mike@test.com',
+        password: hashedPassword,
+        role: 'customer'
+      },
+      {
+        name: 'Emma Davis',
+        email: 'emma@test.com',
+        password: hashedPassword,
+        role: 'customer'
+      },
+      {
         name: 'Test Coach',
         email: 'coach@test.com',
         password: hashedPassword,

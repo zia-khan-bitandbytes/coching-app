@@ -78,6 +78,25 @@ CREATE TABLE IF NOT EXISTS user_milestones (
   UNIQUE(user_id, milestone_id)
 );
 
+-- Create messages table for community chat
+CREATE TABLE IF NOT EXISTS messages (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  text TEXT NOT NULL,
+  parent_id INTEGER REFERENCES messages(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create message_reactions table for storing reactions
+CREATE TABLE IF NOT EXISTS message_reactions (
+  id SERIAL PRIMARY KEY,
+  message_id INTEGER REFERENCES messages(id),
+  user_id INTEGER REFERENCES users(id),
+  emoji VARCHAR(10) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(message_id, user_id, emoji)
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);

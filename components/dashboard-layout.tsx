@@ -136,6 +136,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 ) : (
                   <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
                 )}
+                {isCustomer && (
+                  <DropdownMenuItem asChild>
+                    <a href="/customer/settings">Edit Profile</a>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="h-4 w-4 mr-2" />
                   Logout
