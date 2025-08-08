@@ -16,12 +16,8 @@ import {
   Mail, 
   Phone, 
   Camera, 
-  CreditCard, 
   MapPin, 
   Calendar,
-  Building,
-  Globe,
-  Target,
   Star,
   CheckCircle,
   ArrowRight,
@@ -33,7 +29,8 @@ import {
   Award,
   Users,
   BookOpen,
-  TrendingUp
+  TrendingUp,
+  Target
 } from "lucide-react"
 import { showSuccessToast, showErrorToast } from "@/lib/toast"
 
@@ -48,32 +45,6 @@ interface SignupFormData {
   
   // Profile Picture
   profilePicture: File | null
-  
-  // Address Information
-  address: string
-  city: string
-  state: string
-  zipCode: string
-  country: string
-  
-  // Professional Information
-  company: string
-  jobTitle: string
-  industry: string
-  experience: string
-  
-  // Goals & Preferences
-  primaryGoal: string
-  secondaryGoals: string[]
-  preferredContact: string
-  timezone: string
-  
-  // Payment Information
-  cardNumber: string
-  cardHolderName: string
-  expiryDate: string
-  cvv: string
-  billingAddress: string
   
   // Account Security
   password: string
@@ -97,24 +68,6 @@ export default function CustomerSignupPage() {
     dateOfBirth: "",
     gender: "",
     profilePicture: null,
-    address: "",
-    city: "",
-    state: "",
-    zipCode: "",
-    country: "",
-    company: "",
-    jobTitle: "",
-    industry: "",
-    experience: "",
-    primaryGoal: "",
-    secondaryGoals: [],
-    preferredContact: "email",
-    timezone: "",
-    cardNumber: "",
-    cardHolderName: "",
-    expiryDate: "",
-    cvv: "",
-    billingAddress: "",
     password: "",
     confirmPassword: "",
     acceptTerms: false,
@@ -124,37 +77,7 @@ export default function CustomerSignupPage() {
   const steps = [
     { id: 1, title: "Welcome", icon: Star },
     { id: 2, title: "Personal Info", icon: User },
-    { id: 3, title: "Payment", icon: CreditCard },
-    { id: 4, title: "Security", icon: Shield }
-  ]
-
-  const industries = [
-    "Technology", "Healthcare", "Finance", "Education", "Manufacturing", 
-    "Retail", "Real Estate", "Consulting", "Marketing", "Legal",
-    "Non-profit", "Government", "Other"
-  ]
-
-  const experienceLevels = [
-    "Entry Level (0-2 years)", "Mid Level (3-7 years)", 
-    "Senior Level (8-15 years)", "Executive (15+ years)"
-  ]
-
-  const primaryGoals = [
-    "Career Advancement", "Skill Development", "Leadership Training",
-    "Business Growth", "Personal Development", "Industry Transition"
-  ]
-
-  const secondaryGoals = [
-    "Public Speaking", "Strategic Planning", "Team Management",
-    "Financial Management", "Marketing Skills", "Technical Skills",
-    "Networking", "Work-Life Balance", "Time Management"
-  ]
-
-  const timezones = [
-    "UTC-12", "UTC-11", "UTC-10", "UTC-9", "UTC-8", "UTC-7", "UTC-6",
-    "UTC-5", "UTC-4", "UTC-3", "UTC-2", "UTC-1", "UTC+0", "UTC+1",
-    "UTC+2", "UTC+3", "UTC+4", "UTC+5", "UTC+6", "UTC+7", "UTC+8",
-    "UTC+9", "UTC+10", "UTC+11", "UTC+12"
+    { id: 3, title: "Security", icon: Shield }
   ]
 
   const handleInputChange = (field: keyof SignupFormData, value: any) => {
@@ -166,15 +89,6 @@ export default function CustomerSignupPage() {
     if (file) {
       handleInputChange('profilePicture', file)
     }
-  }
-
-  const handleSecondaryGoalToggle = (goal: string) => {
-    setFormData(prev => ({
-      ...prev,
-      secondaryGoals: prev.secondaryGoals.includes(goal)
-        ? prev.secondaryGoals.filter(g => g !== goal)
-        : [...prev.secondaryGoals, goal]
-    }))
   }
 
   const nextStep = () => {
@@ -361,8 +275,7 @@ export default function CustomerSignupPage() {
                     <CardTitle className="flex items-center gap-2 text-2xl">
                       {currentStep === 1 && <Star className="h-6 w-6 text-yellow-500" />}
                       {currentStep === 2 && <User className="h-6 w-6 text-blue-500" />}
-                      {currentStep === 3 && <CreditCard className="h-6 w-6 text-orange-500" />}
-                      {currentStep === 4 && <Shield className="h-6 w-6 text-red-500" />}
+                      {currentStep === 3 && <Shield className="h-6 w-6 text-red-500" />}
                       {steps[currentStep - 1].title}
                     </CardTitle>
                   </CardHeader>
@@ -529,81 +442,8 @@ export default function CustomerSignupPage() {
                       </motion.div>
                     )}
 
-                    {/* Step 3: Payment */}
+                    {/* Step 3: Security */}
                     {currentStep === 3 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-6"
-                      >
-                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Shield className="h-5 w-5 text-blue-600" />
-                            <span className="font-semibold text-blue-800">Secure Payment</span>
-                          </div>
-                          <p className="text-sm text-blue-700">
-                            Your payment information is encrypted and secure. We use industry-standard SSL encryption.
-                          </p>
-                        </div>
-
-                        <div className="grid md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <Label htmlFor="cardNumber">Card Number *</Label>
-                            <Input
-                              id="cardNumber"
-                              value={formData.cardNumber}
-                              onChange={(e) => handleInputChange('cardNumber', e.target.value)}
-                              placeholder="1234 5678 9012 3456"
-                              maxLength={19}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="cardHolderName">Cardholder Name *</Label>
-                            <Input
-                              id="cardHolderName"
-                              value={formData.cardHolderName}
-                              onChange={(e) => handleInputChange('cardHolderName', e.target.value)}
-                              placeholder="Enter cardholder name"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid md:grid-cols-3 gap-6">
-                          <div className="space-y-2">
-                            <Label htmlFor="expiryDate">Expiry Date *</Label>
-                            <Input
-                              id="expiryDate"
-                              value={formData.expiryDate}
-                              onChange={(e) => handleInputChange('expiryDate', e.target.value)}
-                              placeholder="MM/YY"
-                              maxLength={5}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="cvv">CVV *</Label>
-                            <Input
-                              id="cvv"
-                              value={formData.cvv}
-                              onChange={(e) => handleInputChange('cvv', e.target.value)}
-                              placeholder="123"
-                              maxLength={4}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="billingAddress">Billing Address</Label>
-                            <Input
-                              id="billingAddress"
-                              value={formData.billingAddress}
-                              onChange={(e) => handleInputChange('billingAddress', e.target.value)}
-                              placeholder="Enter billing address"
-                            />
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {/* Step 4: Security */}
-                    {currentStep === 4 && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
