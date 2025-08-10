@@ -11,8 +11,18 @@ export interface User {
   created_at: string
 }
 
+export interface Coach {
+  id: string
+  user_id: string
+  business_name: string
+  bio?: string
+  specialization?: string
+  hourly_rate?: number
+}
+
 export interface AuthenticatedUser extends User {
-  // Additional fields for authenticated user
+  coach_id?: string
+  business_name?: string
 }
 
 // Role hierarchy - higher roles have access to lower roles
@@ -46,10 +56,34 @@ export async function getUserFromRequest(request: NextRequest): Promise<Authenti
 // Verify user exists in database and has valid role (for API routes only)
 export async function verifyUser(userId: string): Promise<AuthenticatedUser | null> {
   try {
-    const result = await pool.query(
-      'SELECT id, email, name, role, created_at FROM users WHERE id = $1',
-      [userId]
-    )
+    const result = await pool.query(`
+      SELECT u.id, u.email, u.name, u.role, u.created_at, c.id as coach_id, c.business_name
+      FROM users u
+      LEFT JOIN coaches c ON u.id = c.user_id
+      WHERE u.id = $1
+    `, [userId])
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    const user = result.rows[0] as AuthenticatedUser
+    return user
+  } catch (error) {
+    console.error('Error verifying user:', error)
+    return null
+  }
+}
+
+// Get user with coach information
+export async function getUserWithCoachInfo(userId: string): Promise<AuthenticatedUser | null> {
+  try {
+    const result = await pool.query(`
+      SELECT u.id, u.email, u.name, u.role, u.created_at, c.id as coach_id, c.business_name
+      FROM users u
+      LEFT JOIN coaches c ON u.id = c.user_id
+      WHERE u.id = $1
+    `, [userId])
 
     if (result.rows.length === 0) {
       return null
@@ -57,7 +91,84 @@ export async function verifyUser(userId: string): Promise<AuthenticatedUser | nu
 
     return result.rows[0] as AuthenticatedUser
   } catch (error) {
-    console.error('Error verifying user:', error)
+    console.error('Error getting user with coach info:', error)
+    return null
+  }
+}
+
+// Get coach information
+export async function getCoachInfo(coachId: string): Promise<Coach | null> {
+  try {
+    const result = await pool.query(`
+      SELECT c.id, c.user_id, c.business_name, c.bio, c.specialization, c.hourly_rate
+      FROM coaches c
+      WHERE c.id = $1
+    `, [coachId])
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    return result.rows[0] as Coach
+  } catch (error) {
+    console.error('Error getting coach info:', error)
+    return null
+  }
+}
+
+// Get all coaches (for admin)
+export async function getAllCoaches(): Promise<Coach[]> {
+  try {
+    const result = await pool.query(`
+      SELECT c.id, c.user_id, c.business_name, c.bio, c.specialization, c.hourly_rate,
+             u.name, u.email, u.created_at
+      FROM coaches c
+      JOIN users u ON c.user_id = u.id
+      ORDER BY c.created_at DESC
+    `)
+
+    return result.rows as Coach[]
+  } catch (error) {
+    console.error('Error getting all coaches:', error)
+    return []
+  }
+}
+
+// Get coach's customers
+export async function getCoachCustomers(coachId: string): Promise<any[]> {
+  try {
+    const result = await pool.query(`
+      SELECT u.id, u.name, u.email, u.created_at, cc.status, cc.assigned_at
+      FROM users u
+      JOIN coach_customers cc ON u.id = cc.customer_id
+      WHERE cc.coach_id = $1
+      ORDER BY cc.assigned_at DESC
+    `, [coachId])
+
+    return result.rows
+  } catch (error) {
+    console.error('Error getting coach customers:', error)
+    return []
+  }
+}
+
+// Get customer's coach
+export async function getCustomerCoach(customerId: string): Promise<Coach | null> {
+  try {
+    const result = await pool.query(`
+      SELECT c.id, c.user_id, c.business_name, c.bio, c.specialization, c.hourly_rate
+      FROM coaches c
+      JOIN coach_customers cc ON c.id = cc.coach_id
+      WHERE cc.customer_id = $1
+    `, [customerId])
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    return result.rows[0] as Coach
+  } catch (error) {
+    console.error('Error getting customer coach:', error)
     return null
   }
 }

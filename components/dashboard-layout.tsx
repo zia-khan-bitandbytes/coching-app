@@ -53,7 +53,7 @@ function RoadmapDropdown() {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [user, setUser] = useState<{ email: string; name: string; role: string } | null>(null)
+  const [user, setUser] = useState<{ email: string; name: string; role: string; coach_id?: string; business_name?: string } | null>(null)
   const [selectedOffer, setSelectedOffer] = useState("business-growth")
   const router = useRouter()
 
@@ -102,7 +102,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-6">
-            <RoadmapDropdown />
+            {isCoach ? (
+              <div className="flex items-center">
+                <h1 className="text-2xl font-bold text-gray-900">{user.business_name || 'Coach Dashboard'}</h1>
+                <span className="ml-4 text-sm text-gray-600">Coach: {user.name}</span>
+              </div>
+            ) : (
+              <RoadmapDropdown />
+            )}
 
             {isCustomer && (
               <Select value={selectedOffer} onValueChange={setSelectedOffer}>
@@ -125,7 +132,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="flex items-center gap-2">
                   <span className="text-sm text-gray-600">
-                    {isAdmin ? "Admin Account" : user.name}
+                    {isAdmin ? "Admin Account" : isCoach ? `${user.business_name} - ${user.name}` : user.name}
                   </span>
                   <ChevronDown className="h-4 w-4" />
                 </Button>
@@ -133,6 +140,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <DropdownMenuContent align="end">
                 {isAdmin ? (
                   <DropdownMenuItem onClick={switchToClient}>Switch to Client View</DropdownMenuItem>
+                ) : isCoach ? (
+                  <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
                 )}

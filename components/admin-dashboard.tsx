@@ -1,65 +1,163 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Users, TrendingUp, CheckCircle, DollarSign } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Users, TrendingUp, CheckCircle, DollarSign, Building2, UserCheck, BookOpen } from "lucide-react"
 
-const stats = [
-  {
-    title: "Total Clients",
-    value: "247",
-    change: "+12%",
-    icon: Users,
-    color: "text-blue-600",
-  },
-  {
-    title: "Active Programs",
-    value: "3",
-    change: "No change",
-    icon: TrendingUp,
-    color: "text-green-600",
-  },
-  {
-    title: "Completed Milestones",
-    value: "1,234",
-    change: "+23%",
-    icon: CheckCircle,
-    color: "text-purple-600",
-  },
-  {
-    title: "Monthly Revenue",
-    value: "$124,500",
-    change: "+8%",
-    icon: DollarSign,
-    color: "text-emerald-600",
-  },
-]
+interface Coach {
+  id: string
+  user_id: string
+  business_name: string
+  bio?: string
+  specialization?: string
+  hourly_rate?: number
+  name: string
+  email: string
+  created_at: string
+}
 
-const recentActivity = [
-  { client: "Sarah Johnson", action: "Completed Milestone 3", program: "Business Growth", time: "2 hours ago" },
-  { client: "Mike Chen", action: "Uploaded document", program: "Leadership Mastery", time: "4 hours ago" },
-  { client: "Emma Davis", action: "Started Milestone 2", program: "Sales Excellence", time: "6 hours ago" },
-  { client: "John Smith", action: "Completed program", program: "Business Growth", time: "1 day ago" },
-]
+interface CoachStats {
+  totalCustomers: number
+  totalPrograms: number
+  totalRevenue: number
+  activePrograms: number
+}
 
-const programProgress = [
-  { name: "Business Growth Program", completed: 45, total: 67, percentage: 67 },
-  { name: "Leadership Mastery", completed: 23, total: 34, percentage: 68 },
-  { name: "Sales Excellence", completed: 12, total: 18, percentage: 67 },
-]
+interface Program {
+  id: string
+  name: string
+  description: string
+  duration_weeks: number
+  price: number
+  enrolled_customers: number
+}
+
+interface Customer {
+  id: string
+  name: string
+  email: string
+  enrolled_programs: number
+  completed_milestones: number
+  total_spent: number
+}
 
 export function AdminDashboard() {
+  const [coaches, setCoaches] = useState<Coach[]>([])
+  const [selectedCoach, setSelectedCoach] = useState<Coach | null>(null)
+  const [coachStats, setCoachStats] = useState<CoachStats>({
+    totalCustomers: 0,
+    totalPrograms: 0,
+    totalRevenue: 0,
+    activePrograms: 0
+  })
+  const [programs, setPrograms] = useState<Program[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchCoaches()
+  }, [])
+
+  useEffect(() => {
+    if (selectedCoach) {
+      fetchCoachData(selectedCoach.id)
+    }
+  }, [selectedCoach])
+
+  const fetchCoaches = async () => {
+    try {
+      const response = await fetch('/api/admin/coaches')
+      if (response.ok) {
+        const data = await response.json()
+        setCoaches(data.coaches)
+        if (data.coaches.length > 0) {
+          setSelectedCoach(data.coaches[0])
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching coaches:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchCoachData = async (coachId: string) => {
+    try {
+      const [statsResponse, programsResponse, customersResponse] = await Promise.all([
+        fetch(`/api/admin/coaches/${coachId}/stats`),
+        fetch(`/api/admin/coaches/${coachId}/programs`),
+        fetch(`/api/admin/coaches/${coachId}/customers`)
+      ])
+
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        setCoachStats(statsData.stats)
+      }
+
+      if (programsResponse.ok) {
+        const programsData = await programsResponse.json()
+        setPrograms(programsData.programs)
+      }
+
+      if (customersResponse.ok) {
+        const customersData = await customersResponse.json()
+        setCustomers(customersData.customers)
+      }
+    } catch (error) {
+      console.error('Error fetching coach data:', error)
+    }
+  }
+
+  const overallStats = [
+    {
+      title: "Total Coaches",
+      value: coaches.length.toString(),
+      change: "+" + coaches.length + " active",
+      icon: Building2,
+      color: "text-blue-600",
+    },
+    {
+      title: "Total Customers",
+      value: coaches.reduce((sum, coach) => sum + (coachStats.totalCustomers || 0), 0).toString(),
+      change: "Across all coaches",
+      icon: Users,
+      color: "text-green-600",
+    },
+    {
+      title: "Total Programs",
+      value: coaches.reduce((sum, coach) => sum + (coachStats.totalPrograms || 0), 0).toString(),
+      change: "Active programs",
+      icon: BookOpen,
+      color: "text-purple-600",
+    },
+    {
+      title: "Total Revenue",
+      value: "$" + coaches.reduce((sum, coach) => sum + (coachStats.totalRevenue || 0), 0).toLocaleString(),
+      change: "All time",
+      icon: DollarSign,
+      color: "text-emerald-600",
+    },
+  ]
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64">Loading...</div>
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-1">Overview of your coaching business</p>
+        <h1 className="text-3xl font-bold text-gray-900">Multi-Tenant Admin Dashboard</h1>
+        <p className="text-gray-600 mt-1">Overview of all coaches and their businesses</p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Overall Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => {
+        {overallStats.map((stat) => {
           const Icon = stat.icon
           return (
             <Card key={stat.title}>
@@ -69,79 +167,174 @@ export function AdminDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">{stat.change} from last month</p>
+                <p className="text-xs text-muted-foreground">{stat.change}</p>
               </CardContent>
             </Card>
           )
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Program Progress */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Program Progress</CardTitle>
-            <CardDescription>Client completion rates by program</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {programProgress.map((program) => (
-              <div key={program.name} className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="font-medium">{program.name}</span>
-                  <span className="text-gray-600">
-                    {program.completed}/{program.total} clients
-                  </span>
-                </div>
-                <Progress value={program.percentage} className="h-2" />
-                <div className="text-xs text-gray-500">{program.percentage}% completion rate</div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest client actions and milestones</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">{activity.client}</p>
-                    <p className="text-xs text-gray-600">{activity.action}</p>
-                    <Badge variant="secondary" className="text-xs">
-                      {activity.program}
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-gray-500">{activity.time}</div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Milestone Completion Chart */}
+      {/* Coach Selection */}
       <Card>
         <CardHeader>
-          <CardTitle>Milestone Completion Overview</CardTitle>
-          <CardDescription>Track how clients are progressing through milestones</CardDescription>
+          <CardTitle>Select Coach to View Details</CardTitle>
+          <CardDescription>Choose a coach to see their specific data and performance</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-5 gap-4">
-            {[1, 2, 3, 4, 5].map((milestone) => (
-              <div key={milestone} className="text-center space-y-2">
-                <div className="text-2xl font-bold text-blue-600">{Math.floor(Math.random() * 50) + 20}</div>
-                <div className="text-sm text-gray-600">Milestone {milestone}</div>
-                <div className="text-xs text-gray-500">Completed</div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {coaches.map((coach) => (
+              <Button
+                key={coach.id}
+                variant={selectedCoach?.id === coach.id ? "default" : "outline"}
+                className="h-auto p-4 flex flex-col items-start"
+                onClick={() => setSelectedCoach(coach)}
+              >
+                <div className="font-semibold text-left">{coach.business_name}</div>
+                <div className="text-sm text-muted-foreground text-left">{coach.name}</div>
+                <div className="text-xs text-muted-foreground text-left">{coach.specialization}</div>
+              </Button>
             ))}
           </div>
         </CardContent>
       </Card>
+
+      {selectedCoach && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{selectedCoach.business_name} - Coach Dashboard</CardTitle>
+              <CardDescription>Coach: {selectedCoach.name} | Specialization: {selectedCoach.specialization}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{coachStats.totalCustomers}</div>
+                  <div className="text-sm text-gray-600">Total Customers</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{coachStats.totalPrograms}</div>
+                  <div className="text-sm text-gray-600">Active Programs</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{coachStats.activePrograms}</div>
+                  <div className="text-sm text-gray-600">Active Enrollments</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-emerald-600">${coachStats.totalRevenue?.toLocaleString()}</div>
+                  <div className="text-sm text-gray-600">Total Revenue</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Tabs defaultValue="programs" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="programs">Programs</TabsTrigger>
+              <TabsTrigger value="customers">Customers</TabsTrigger>
+              <TabsTrigger value="performance">Performance</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="programs" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Coaching Programs</CardTitle>
+                  <CardDescription>Programs offered by {selectedCoach.business_name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Program Name</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Enrolled</TableHead>
+                        <TableHead>Revenue</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {programs.map((program) => (
+                        <TableRow key={program.id}>
+                          <TableCell className="font-medium">{program.name}</TableCell>
+                          <TableCell>{program.duration_weeks} weeks</TableCell>
+                          <TableCell>${program.price}</TableCell>
+                          <TableCell>{program.enrolled_customers}</TableCell>
+                          <TableCell>${(program.price * program.enrolled_customers).toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="customers" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Customer Base</CardTitle>
+                  <CardDescription>Customers enrolled in {selectedCoach.business_name} programs</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Customer Name</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Programs</TableHead>
+                        <TableHead>Milestones</TableHead>
+                        <TableHead>Total Spent</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {customers.map((customer) => (
+                        <TableRow key={customer.id}>
+                          <TableCell className="font-medium">{customer.name}</TableCell>
+                          <TableCell>{customer.email}</TableCell>
+                          <TableCell>{customer.enrolled_programs}</TableCell>
+                          <TableCell>{customer.completed_milestones}</TableCell>
+                          <TableCell>${customer.total_spent.toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="performance" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Performance Metrics</CardTitle>
+                  <CardDescription>Key performance indicators for {selectedCoach.business_name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <h4 className="font-semibold">Customer Engagement</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Active Customers</span>
+                          <span className="font-medium">{coachStats.totalCustomers}</span>
+                        </div>
+                        <Progress value={75} className="h-2" />
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <h4 className="font-semibold">Revenue Growth</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span>Monthly Revenue</span>
+                          <span className="font-medium">${Math.floor(coachStats.totalRevenue / 12).toLocaleString()}</span>
+                        </div>
+                        <Progress value={60} className="h-2" />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </div>
+      )}
     </div>
   )
 }

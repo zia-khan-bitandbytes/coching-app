@@ -478,7 +478,7 @@ export default function CustomerSignupPage() {
                           <div className="space-y-2">
                             <Label htmlFor="gender">Gender</Label>
                             <Select value={formData.gender} onValueChange={(value) => handleInputChange('gender', value)}>
-                              <SelectTrigger>
+                              <SelectTrigger id="gender">
                                 <SelectValue placeholder="Select gender" />
                               </SelectTrigger>
                               <SelectContent>

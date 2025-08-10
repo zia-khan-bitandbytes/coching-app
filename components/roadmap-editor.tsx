@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,199 +14,629 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Edit, Trash2, GripVertical } from "lucide-react"
+import { toast } from "@/hooks/use-toast"
+import { ChevronDown, ChevronRight, Edit, GripVertical, Plus, Trash2, X } from "lucide-react"
 
-const programs = [
-  { id: "business-growth", name: "Business Growth Program" },
-  { id: "leadership", name: "Leadership Mastery" },
-  { id: "sales-excellence", name: "Sales Excellence" },
-]
+interface Program {
+  id: number
+  name: string
+  description: string
+  price: number
+  duration_weeks: number
+  is_active: boolean
+}
 
-const milestones = [
-  {
-    id: 1,
-    title: "Foundation Setup",
-    description: "Initial assessment and goal setting",
-    order: 1,
-    program: "business-growth",
-    tasks: [
-      { id: 1, title: "Complete onboarding", requiresUpload: false },
-      { id: 2, title: "Initial consultation", requiresUpload: false },
-      { id: 3, title: "Upload business plan", requiresUpload: true },
-    ],
-  },
-  {
-    id: 2,
-    title: "Strategy Development",
-    description: "Create comprehensive business strategy",
-    order: 2,
-    program: "business-growth",
-    tasks: [
-      { id: 4, title: "Market analysis", requiresUpload: false },
-      { id: 5, title: "Submit strategy document", requiresUpload: true },
-    ],
-  },
-]
+interface Milestone {
+  id: number
+  title: string
+  description: string
+  order_index: number
+  program_id: number
+  created_at?: string
+  completed_count?: number
+  total_enrolled?: number
+  completion_rate?: number
+}
+
+interface ProgramWithMilestones extends Program {
+  milestones: Milestone[]
+  isAddingMilestone: boolean
+  newMilestoneForm: {
+    title: string
+    description: string
+    order_index: string
+  }
+}
 
 export function RoadmapEditor() {
-  const [selectedProgram, setSelectedProgram] = useState("business-growth")
-  const [isAddMilestoneOpen, setIsAddMilestoneOpen] = useState(false)
-  const [isAddTaskOpen, setIsAddTaskOpen] = useState(false)
-  const [editingMilestone, setEditingMilestone] = useState<number | null>(null)
+  const [programs, setPrograms] = useState<ProgramWithMilestones[]>([])
+  const [expandedPrograms, setExpandedPrograms] = useState<Set<number>>(new Set())
+  const [isAddProgramOpen, setIsAddProgramOpen] = useState(false)
+  const [editingProgram, setEditingProgram] = useState<Program | null>(null)
+  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const filteredMilestones = milestones.filter((m) => m.program === selectedProgram)
+  // Form states
+  const [programForm, setProgramForm] = useState({
+    name: '',
+    description: '',
+    price: '',
+    duration_weeks: ''
+  })
+
+  useEffect(() => {
+    fetchPrograms()
+  }, [])
+
+  const fetchPrograms = async () => {
+    try {
+      const response = await fetch('/api/coach/1/programs')
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          // Initialize programs with empty milestones and form state
+          const programsWithMilestones = data.programs.map((program: Program) => ({
+            ...program,
+            milestones: [],
+            isAddingMilestone: false,
+            newMilestoneForm: {
+              title: '',
+              description: '',
+              order_index: ''
+            }
+          }))
+          
+          setPrograms(programsWithMilestones)
+          
+          // Expand first program by default
+          if (programsWithMilestones.length > 0) {
+            setExpandedPrograms(new Set([programsWithMilestones[0].id]))
+            // Fetch milestones for the first program
+            await fetchMilestones(programsWithMilestones[0].id)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching programs:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch programs",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchMilestones = async (programId: number) => {
+    try {
+      console.log(`Fetching milestones for program ${programId}`)
+      const response = await fetch(`/api/coach/1/programs/${programId}/milestones`)
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Milestones response:', data)
+        if (data.success) {
+          setPrograms(prev => prev.map(program => 
+            program.id === programId 
+              ? { ...program, milestones: data.milestones }
+              : program
+          ))
+        }
+      } else {
+        console.error('Failed to fetch milestones:', response.status)
+      }
+    } catch (error) {
+      console.error('Error fetching milestones:', error)
+    }
+  }
+
+  const toggleProgramExpansion = async (programId: number) => {
+    const newExpanded = new Set(expandedPrograms)
+    if (newExpanded.has(programId)) {
+      newExpanded.delete(programId)
+    } else {
+      newExpanded.add(programId)
+      // Fetch milestones when expanding
+      await fetchMilestones(programId)
+    }
+    setExpandedPrograms(newExpanded)
+  }
+
+  const handleAddProgram = async () => {
+    // Validate required fields
+    if (!programForm.name.trim() || !programForm.description.trim() || !programForm.price || !programForm.duration_weeks) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const response = await fetch('/api/coach/programs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: programForm.name.trim(),
+          description: programForm.description.trim(),
+          price: parseFloat(programForm.price),
+          duration_weeks: parseInt(programForm.duration_weeks)
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          toast({
+            title: "Success",
+            description: "Program created successfully"
+          })
+          setIsAddProgramOpen(false)
+          setProgramForm({ name: '', description: '', price: '', duration_weeks: '' })
+          fetchPrograms()
+        }
+      }
+    } catch (error) {
+      console.error('Error creating program:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create program",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const toggleMilestoneForm = (programId: number) => {
+    setPrograms(prev => prev.map(program => 
+      program.id === programId 
+        ? { 
+            ...program, 
+            isAddingMilestone: !program.isAddingMilestone,
+            newMilestoneForm: {
+              title: '',
+              description: '',
+              order_index: ''
+            }
+          }
+        : program
+    ))
+  }
+
+  const updateMilestoneForm = (programId: number, field: keyof typeof programs[0]['newMilestoneForm'], value: string) => {
+    setPrograms(prev => prev.map(program => 
+      program.id === programId 
+        ? { 
+            ...program, 
+            newMilestoneForm: {
+              ...program.newMilestoneForm,
+              [field]: value
+            }
+          }
+        : program
+    ))
+  }
+
+  const handleAddMilestone = async (programId: number) => {
+    const program = programs.find(p => p.id === programId)
+    if (!program) return
+
+    const { title, description, order_index } = program.newMilestoneForm
+
+    // Force alert to test if function is called
+    alert(`Function called! Adding milestone for program ${programId}`)
+    
+    console.log('Adding milestone:', { programId, title, description, order_index })
+    console.log('Timestamp:', new Date().toISOString())
+
+    // Validate required fields
+    if (!title.trim() || !description.trim() || !order_index.trim()) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Validate order_index is a valid number
+    const orderIndex = parseInt(order_index)
+    if (isNaN(orderIndex) || orderIndex <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid order number (must be greater than 0)",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      console.log('Sending POST request to create milestone')
+      const response = await fetch(`/api/coach/1/programs/${programId}/milestones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim(),
+          order_index: orderIndex
+        })
+      })
+
+      console.log('Response status:', response.status)
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Milestone creation response:', data)
+        if (data.success) {
+          toast({
+            title: "Success",
+            description: "Milestone created successfully"
+          })
+          
+          // Reset form and close it
+          setPrograms(prev => prev.map(p => 
+            p.id === programId 
+              ? { 
+                  ...p, 
+                  isAddingMilestone: false,
+                  newMilestoneForm: { title: '', description: '', order_index: '' }
+                }
+              : p
+          ))
+          
+          // Refresh milestones for this program
+          console.log('Refreshing milestones after creation')
+          await fetchMilestones(programId)
+        }
+      } else {
+        const errorData = await response.json()
+        console.error('Error response:', errorData)
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to create milestone",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error creating milestone:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create milestone",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteProgram = async (programId: number) => {
+    if (!confirm('Are you sure you want to delete this program? This will also delete all associated milestones.')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/coach/programs/${programId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Program deleted successfully"
+        })
+        fetchPrograms()
+      }
+    } catch (error) {
+      console.error('Error deleting program:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete program",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteMilestone = async (programId: number, milestoneId: number) => {
+    if (!confirm('Are you sure you want to delete this milestone?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/coach/1/programs/${programId}/milestones?milestoneId=${milestoneId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Success",
+          description: "Milestone deleted successfully"
+        })
+        await fetchMilestones(programId)
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to delete milestone",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error deleting milestone:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete milestone",
+        variant: "destructive"
+      })
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64">Loading...</div>
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Roadmap Editor</h1>
-          <p className="text-gray-600 mt-1">Create and manage coaching program roadmaps</p>
+          <p className="text-gray-600 mt-1">Create and manage coaching programs and milestones</p>
         </div>
+        <Dialog open={isAddProgramOpen} onOpenChange={setIsAddProgramOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Program
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Program</DialogTitle>
+              <DialogDescription>Create a new coaching program</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="programName" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Program Name</label>
+                <Input 
+                  id="programName" 
+                  placeholder="Enter program name"
+                  value={programForm.name}
+                  onChange={(e) => setProgramForm({...programForm, name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="programDescription" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Description</label>
+                <Textarea 
+                  id="programDescription" 
+                  placeholder="Enter program description"
+                  value={programForm.description}
+                  onChange={(e) => setProgramForm({...programForm, description: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="programPrice" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Price ($)</label>
+                  <Input 
+                    id="programPrice" 
+                    type="number" 
+                    placeholder="0.00"
+                    value={programForm.price}
+                    onChange={(e) => setProgramForm({...programForm, price: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="programDuration" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Duration (weeks)</label>
+                  <Input 
+                    id="programDuration" 
+                    type="number" 
+                    placeholder="12"
+                    value={programForm.duration_weeks}
+                    onChange={(e) => setProgramForm({...programForm, duration_weeks: e.target.value})}
+                  />
+                </div>
+              </div>
+              <Button className="w-full" onClick={handleAddProgram}>Add Program</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Program Selector */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Select Program</CardTitle>
-          <CardDescription>Choose which coaching program to edit</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Select value={selectedProgram} onValueChange={setSelectedProgram}>
-            <SelectTrigger className="w-64">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {programs.map((program) => (
-                <SelectItem key={program.id} value={program.id}>
-                  {program.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
-
-      {/* Milestones */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle>Milestones</CardTitle>
-            <CardDescription>Manage milestones for the selected program</CardDescription>
-          </div>
-          <Dialog open={isAddMilestoneOpen} onOpenChange={setIsAddMilestoneOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Milestone
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Milestone</DialogTitle>
-                <DialogDescription>Create a new milestone for the coaching program</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Milestone Title</Label>
-                  <Input id="title" placeholder="Enter milestone title" />
+      {/* Programs and Milestones */}
+      <div className="space-y-4">
+        {programs.map((program) => (
+          <Card key={program.id} className="overflow-hidden">
+            <CardHeader 
+              className="cursor-pointer hover:bg-gray-50"
+              onClick={() => toggleProgramExpansion(program.id)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {expandedPrograms.has(program.id) ? (
+                    <ChevronDown className="h-5 w-5 text-gray-500" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-gray-500" />
+                  )}
+                  <div>
+                    <CardTitle className="text-lg">{program.name}</CardTitle>
+                    <CardDescription>{program.description}</CardDescription>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" placeholder="Enter milestone description" />
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">${program.price}</Badge>
+                  <Badge variant="secondary">{program.duration_weeks} weeks</Badge>
+                  <Badge variant="outline">{program.milestones.length} milestones</Badge>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingProgram(program)
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-red-600"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleDeleteProgram(program.id)
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="order">Order</Label>
-                  <Input id="order" type="number" placeholder="1" />
-                </div>
-                <Button className="w-full">Add Milestone</Button>
               </div>
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {filteredMilestones.map((milestone) => (
-              <div key={milestone.id} className="border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <GripVertical className="h-4 w-4 text-gray-400 cursor-move" />
-                    <div>
-                      <h3 className="font-medium">{milestone.title}</h3>
-                      <p className="text-sm text-gray-600">{milestone.description}</p>
-                    </div>
-                    <Badge variant="outline">Order: {milestone.order}</Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingMilestone(milestone.id)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" className="text-red-600">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
+            </CardHeader>
 
-                {/* Tasks */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium">Tasks</h4>
-                    <Dialog open={isAddTaskOpen} onOpenChange={setIsAddTaskOpen}>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" size="sm">
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add Task
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add New Task</DialogTitle>
-                          <DialogDescription>Add a task to this milestone</DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="taskTitle">Task Title</Label>
-                            <Input id="taskTitle" placeholder="Enter task title" />
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <input type="checkbox" id="requiresUpload" />
-                            <Label htmlFor="requiresUpload">Requires file upload</Label>
-                          </div>
-                          <Button className="w-full">Add Task</Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+            {expandedPrograms.has(program.id) && (
+              <CardContent className="pt-0">
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Milestones</h3>
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          console.log('Test button clicked for program:', program.id)
+                          alert(`Test button clicked for program ${program.id}`)
+                        }}
+                      >
+                        Test
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => toggleMilestoneForm(program.id)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Milestone
+                      </Button>
+                    </div>
                   </div>
-                  <div className="space-y-2 ml-4">
-                    {milestone.tasks.map((task) => (
-                      <div key={task.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">{task.title}</span>
-                          {task.requiresUpload && (
-                            <Badge variant="secondary" className="text-xs">
-                              Upload Required
-                            </Badge>
-                          )}
+
+                  {/* Inline Milestone Form */}
+                  {program.isAddingMilestone && (
+                    <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-gray-900">New Milestone</h4>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleMilestoneForm(program.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Title</label>
+                          <Input 
+                            placeholder="Enter milestone title"
+                            value={program.newMilestoneForm.title}
+                            onChange={(e) => updateMilestoneForm(program.id, 'title', e.target.value)}
+                          />
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button variant="ghost" size="sm">
-                            <Edit className="h-3 w-3" />
-                          </Button>
-                          <Button variant="ghost" size="sm" className="text-red-600">
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Description</label>
+                          <Textarea 
+                            placeholder="Enter milestone description"
+                            value={program.newMilestoneForm.description}
+                            onChange={(e) => updateMilestoneForm(program.id, 'description', e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Order</label>
+                          <Input 
+                            type="number" 
+                            min="1"
+                            placeholder="1"
+                            value={program.newMilestoneForm.order_index}
+                            onChange={(e) => updateMilestoneForm(program.id, 'order_index', e.target.value)}
+                          />
                         </div>
                       </div>
-                    ))}
+                      <div className="flex gap-2 mt-4">
+                        <Button 
+                          onClick={() => handleAddMilestone(program.id)}
+                          className="flex-1"
+                        >
+                          Add Milestone
+                        </Button>
+                        <Button 
+                          variant="outline"
+                          onClick={() => toggleMilestoneForm(program.id)}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Milestones List */}
+                  <div className="space-y-3">
+                    {/* Debug info */}
+                    <div className="text-xs text-gray-400 p-2 bg-gray-100 rounded">
+                      Debug: Program {program.id} has {program.milestones.length} milestones
+                    </div>
+                    
+                    {program.milestones
+                      .sort((a, b) => a.order_index - b.order_index)
+                      .map((milestone) => (
+                        <div key={milestone.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <GripVertical className="h-4 w-4 text-gray-400" />
+                            <div>
+                              <h4 className="font-medium">{milestone.title}</h4>
+                              <p className="text-sm text-gray-600">{milestone.description}</p>
+                            </div>
+                            <Badge variant="outline">Order: {milestone.order_index}</Badge>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => setEditingMilestone(milestone)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-red-600"
+                              onClick={() => handleDeleteMilestone(program.id, milestone.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    
+                    {program.milestones.length === 0 && (
+                      <div className="text-center py-8 text-gray-500">
+                        No milestones yet. Click "Add Milestone" to create the first one.
+                      </div>
+                    )}
                   </div>
                 </div>
+              </CardContent>
+            )}
+          </Card>
+        ))}
+
+        {programs.length === 0 && (
+          <Card>
+            <CardContent className="text-center py-12">
+              <div className="text-gray-500">
+                <p className="text-lg font-medium mb-2">No programs yet</p>
+                <p className="mb-4">Create your first coaching program to get started</p>
+                <Button onClick={() => setIsAddProgramOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Program
+                </Button>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   )
 }

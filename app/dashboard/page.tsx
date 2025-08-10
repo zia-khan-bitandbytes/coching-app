@@ -5,19 +5,53 @@ import { DashboardLayout } from "@/components/dashboard-layout"
 import { RoleBasedDashboard } from "@/components/role-based-dashboard"
 import { UserRole } from "@/lib/auth-client"
 
+interface User {
+  id: string
+  name: string
+  email: string
+  role: UserRole
+  coach_id?: string
+  business_name?: string
+}
+
 export default function DashboardPage() {
-  const [user, setUser] = useState<{ id: string; name: string; email: string; role: UserRole } | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Get user data from localStorage
-    const userData = localStorage.getItem("user")
-    if (userData) {
-      const parsedUser = JSON.parse(userData)
-      console.log('Dashboard: User data from localStorage:', parsedUser)
-      setUser(parsedUser)
+    const fetchUserProfile = async () => {
+      try {
+        // Get user data from localStorage first
+        const userData = localStorage.getItem("user")
+        if (userData) {
+          const parsedUser = JSON.parse(userData)
+          console.log('Dashboard: User data from localStorage:', parsedUser)
+          
+          // Fetch full user profile from database
+          const response = await fetch(`/api/auth/profile/${parsedUser.id}`)
+          if (response.ok) {
+            const fullUser = await response.json()
+            console.log('Dashboard: Full user profile from API:', fullUser)
+            setUser(fullUser.user)
+          } else {
+            // Fallback to localStorage data if API fails
+            console.log('Dashboard: API failed, using localStorage data')
+            setUser(parsedUser)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error)
+        // Fallback to localStorage data if there's an error
+        const userData = localStorage.getItem("user")
+        if (userData) {
+          setUser(JSON.parse(userData))
+        }
+      } finally {
+        setIsLoading(false)
+      }
     }
-    setIsLoading(false)
+
+    fetchUserProfile()
   }, [])
 
   if (isLoading) {

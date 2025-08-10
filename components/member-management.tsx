@@ -116,7 +116,7 @@ export function MemberManagement() {
               <div className="space-y-2">
                 <Label htmlFor="program">Program</Label>
                 <Select>
-                  <SelectTrigger>
+                  <SelectTrigger id="program">
                     <SelectValue placeholder="Select a program" />
                   </SelectTrigger>
                   <SelectContent>

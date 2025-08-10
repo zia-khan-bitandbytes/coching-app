@@ -120,7 +120,7 @@ export function SignupForm() {
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
             <Select value={formData.role} onValueChange={handleRoleChange}>
-              <SelectTrigger>
+              <SelectTrigger id="role">
                 <SelectValue placeholder="Select your role" />
               </SelectTrigger>
               <SelectContent>
