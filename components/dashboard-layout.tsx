@@ -14,6 +14,7 @@ import { RoadmapProvider, useRoadmap } from "@/contexts/roadmap-context"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
+  isAdmin?: boolean
 }
 
 const coachingOffers = [
@@ -52,7 +53,7 @@ function RoadmapDropdown() {
   )
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLayoutProps) {
   const [user, setUser] = useState<{ email: string; name: string; role: string; coach_id?: string; business_name?: string } | null>(null)
   const [selectedOffer, setSelectedOffer] = useState("business-growth")
   const router = useRouter()
@@ -91,7 +92,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return <div>Loading...</div>
   }
 
-  const isAdmin = user.role === 'super_admin'
+  const isAdmin = propsIsAdmin || user.role === 'super_admin'
   const isCoach = user.role === 'coach'
   const isCustomer = user.role === 'customer'
 
@@ -107,6 +108,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <h1 className="text-2xl font-bold text-gray-900">{user.business_name || 'Coach Dashboard'}</h1>
                 <span className="ml-4 text-sm text-gray-600">Coach: {user.name}</span>
               </div>
+            ) : isAdmin ? (
+              <h1 className="text-2xl font-bold text-gray-900">COACHING XYZ</h1>
             ) : (
               <RoadmapDropdown />
             )}
@@ -128,34 +131,44 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">
-                    {isAdmin ? "Admin Account" : isCoach ? `${user.business_name} - ${user.name}` : user.name}
-                  </span>
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {isAdmin ? (
-                  <DropdownMenuItem onClick={switchToClient}>Switch to Client View</DropdownMenuItem>
-                ) : isCoach ? (
-                  <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
-                )}
-                {isCustomer && (
-                  <DropdownMenuItem asChild>
-                    <a href="/customer/settings">Edit Profile</a>
+            {!isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">
+                      {isCoach ? `${user.business_name} - ${user.name}` : user.name}
+                    </span>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {isCoach ? (
+                    <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
+                  ) : (
+                    <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
+                  )}
+                  {isCustomer && (
+                    <DropdownMenuItem asChild>
+                      <a href="/customer/settings">Edit Profile</a>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem onClick={handleLogout}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
                   </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="h-4 w-4 mr-2" />
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Admin Account</span>
+                <Button variant="ghost" onClick={handleLogout} className="flex items-center gap-2">
+                  <LogOut className="h-4 w-4" />
                   Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                </Button>
+              </div>
+            )}
 
             <Avatar>
               <AvatarFallback>

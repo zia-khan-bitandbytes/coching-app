@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { ChevronDown, ChevronRight, Edit, GripVertical, Plus, Trash2, X } from "lucide-react"
+import { TaskCreationDialog } from "@/components/task-creation-dialog"
+import { MilestoneCard } from "@/components/milestone-card"
 
 interface Program {
   id: number
@@ -26,16 +28,29 @@ interface Program {
   is_active: boolean
 }
 
+interface Task {
+  id: number
+  title: string
+  description: string
+  completed: boolean
+  order_index: number
+  milestone_id: number
+  created_at?: string
+  completed_at?: string
+}
+
 interface Milestone {
   id: number
   title: string
   description: string
   order_index: number
   program_id: number
+  status: "completed" | "in-progress" | "blocked"
   created_at?: string
   completed_count?: number
   total_enrolled?: number
   completion_rate?: number
+  tasks: Task[]
 }
 
 interface ProgramWithMilestones extends Program {
@@ -44,13 +59,17 @@ interface ProgramWithMilestones extends Program {
   newMilestoneForm: {
     title: string
     description: string
-    order_index: string
   }
 }
 
-export function RoadmapEditor() {
+interface RoadmapEditorProps {
+  coachId?: string
+}
+
+export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
   const [programs, setPrograms] = useState<ProgramWithMilestones[]>([])
   const [expandedPrograms, setExpandedPrograms] = useState<Set<number>>(new Set())
+  const [expandedMilestones, setExpandedMilestones] = useState<Set<number>>(new Set())
   const [isAddProgramOpen, setIsAddProgramOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null)
@@ -65,12 +84,16 @@ export function RoadmapEditor() {
   })
 
   useEffect(() => {
-    fetchPrograms()
-  }, [])
+    if (coachId) {
+      fetchPrograms()
+    }
+  }, [coachId])
 
   const fetchPrograms = async () => {
+    if (!coachId) return
+    
     try {
-      const response = await fetch('/api/coach/1/programs')
+      const response = await fetch(`/api/coach/${coachId}/programs`)
       if (response.ok) {
         const data = await response.json()
         if (data.success) {
@@ -81,8 +104,7 @@ export function RoadmapEditor() {
             isAddingMilestone: false,
             newMilestoneForm: {
               title: '',
-              description: '',
-              order_index: ''
+              description: ''
             }
           }))
           
@@ -109,16 +131,27 @@ export function RoadmapEditor() {
   }
 
   const fetchMilestones = async (programId: number) => {
+    if (!coachId) return
+    
     try {
       console.log(`Fetching milestones for program ${programId}`)
-      const response = await fetch(`/api/coach/1/programs/${programId}/milestones`)
+      const response = await fetch(`/api/coach/${coachId}/programs/${programId}/milestones`)
       if (response.ok) {
         const data = await response.json()
         console.log('Milestones response:', data)
         if (data.success) {
+          // Format milestones to match MilestoneCard interface
+          const formattedMilestones = data.milestones.map((milestone: any) => ({
+            ...milestone,
+            status: milestone.completed_count && milestone.total_enrolled && 
+                   milestone.completed_count === milestone.total_enrolled ? "completed" :
+                   milestone.completed_count > 0 ? "in-progress" : "blocked",
+            tasks: milestone.tasks || []
+          }))
+          
           setPrograms(prev => prev.map(program => 
             program.id === programId 
-              ? { ...program, milestones: data.milestones }
+              ? { ...program, milestones: formattedMilestones }
               : program
           ))
         }
@@ -140,6 +173,18 @@ export function RoadmapEditor() {
       await fetchMilestones(programId)
     }
     setExpandedPrograms(newExpanded)
+  }
+
+  const toggleMilestoneExpansion = (milestoneId: number) => {
+    setExpandedMilestones(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(milestoneId)) {
+        newSet.delete(milestoneId)
+      } else {
+        newSet.add(milestoneId)
+      }
+      return newSet
+    })
   }
 
   const handleAddProgram = async () => {
@@ -195,8 +240,7 @@ export function RoadmapEditor() {
             isAddingMilestone: !program.isAddingMilestone,
             newMilestoneForm: {
               title: '',
-              description: '',
-              order_index: ''
+              description: ''
             }
           }
         : program
@@ -221,30 +265,16 @@ export function RoadmapEditor() {
     const program = programs.find(p => p.id === programId)
     if (!program) return
 
-    const { title, description, order_index } = program.newMilestoneForm
-
-    // Force alert to test if function is called
-    alert(`Function called! Adding milestone for program ${programId}`)
+    const { title, description } = program.newMilestoneForm
     
-    console.log('Adding milestone:', { programId, title, description, order_index })
+    console.log('Adding milestone:', { programId, title, description })
     console.log('Timestamp:', new Date().toISOString())
 
     // Validate required fields
-    if (!title.trim() || !description.trim() || !order_index.trim()) {
+    if (!title.trim() || !description.trim()) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
-        variant: "destructive"
-      })
-      return
-    }
-
-    // Validate order_index is a valid number
-    const orderIndex = parseInt(order_index)
-    if (isNaN(orderIndex) || orderIndex <= 0) {
-      toast({
-        title: "Error",
-        description: "Please enter a valid order number (must be greater than 0)",
         variant: "destructive"
       })
       return
@@ -257,8 +287,7 @@ export function RoadmapEditor() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
-          description: description.trim(),
-          order_index: orderIndex
+          description: description.trim()
         })
       })
 
@@ -278,7 +307,7 @@ export function RoadmapEditor() {
               ? { 
                   ...p, 
                   isAddingMilestone: false,
-                  newMilestoneForm: { title: '', description: '', order_index: '' }
+                  newMilestoneForm: { title: '', description: '' }
                 }
               : p
           ))
@@ -365,6 +394,18 @@ export function RoadmapEditor() {
         variant: "destructive"
       })
     }
+  }
+
+  const handleTaskCreated = (milestoneId: number, newTask: any) => {
+    // Update the milestone to include the new task
+    setPrograms(prev => prev.map(program => ({
+      ...program,
+      milestones: program.milestones.map(milestone => 
+        milestone.id === milestoneId 
+          ? { ...milestone, tasks: [...(milestone.tasks || []), newTask] }
+          : milestone
+      )
+    })))
   }
 
   if (loading) {
@@ -543,16 +584,6 @@ export function RoadmapEditor() {
                             onChange={(e) => updateMilestoneForm(program.id, 'description', e.target.value)}
                           />
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Order</label>
-                          <Input 
-                            type="number" 
-                            min="1"
-                            placeholder="1"
-                            value={program.newMilestoneForm.order_index}
-                            onChange={(e) => updateMilestoneForm(program.id, 'order_index', e.target.value)}
-                          />
-                        </div>
                       </div>
                       <div className="flex gap-2 mt-4">
                         <Button 
@@ -572,40 +603,27 @@ export function RoadmapEditor() {
                   )}
                   
                   {/* Milestones List */}
-                  <div className="space-y-3">
-                    {/* Debug info */}
-                    <div className="text-xs text-gray-400 p-2 bg-gray-100 rounded">
-                      Debug: Program {program.id} has {program.milestones.length} milestones
-                    </div>
-                    
+                  <div className="space-y-4">
                     {program.milestones
                       .sort((a, b) => a.order_index - b.order_index)
                       .map((milestone) => (
-                        <div key={milestone.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <GripVertical className="h-4 w-4 text-gray-400" />
-                            <div>
-                              <h4 className="font-medium">{milestone.title}</h4>
-                              <p className="text-sm text-gray-600">{milestone.description}</p>
-                            </div>
-                            <Badge variant="outline">Order: {milestone.order_index}</Badge>
+                        <div key={milestone.id} className="relative">
+                          <div className="absolute left-4 top-6 flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold z-10">
+                            {milestone.order_index}
                           </div>
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => setEditingMilestone(milestone)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-red-600"
-                              onClick={() => handleDeleteMilestone(program.id, milestone.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                          <div className="ml-16">
+                            <MilestoneCard
+                              milestone={milestone}
+                              isExpanded={expandedMilestones.has(milestone.id)}
+                              onToggle={() => toggleMilestoneExpansion(milestone.id)}
+                              onDelete={(milestoneId) => handleDeleteMilestone(program.id, milestoneId)}
+                              onEdit={(milestoneId, newTitle, newDescription) => {
+                                // Handle edit here if needed
+                                console.log('Edit milestone:', milestoneId, newTitle, newDescription)
+                              }}
+                              coachId={coachId}
+                              programId={program.id.toString()}
+                            />
                           </div>
                         </div>
                       ))}

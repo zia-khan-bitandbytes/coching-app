@@ -79,7 +79,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <DashboardLayout>
+    <DashboardLayout isAdmin={user.role === 'super_admin'}>
       <RoleBasedDashboard user={user} />
     </DashboardLayout>
   )

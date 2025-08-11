@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Users, TrendingUp, CheckCircle, DollarSign, BookOpen, Target, Calendar, Plus, UserPlus, ChevronDown, ChevronRight, Edit, Trash2, AlertTriangle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { TaskCreationDialog } from "@/components/task-creation-dialog"
+import { MilestoneCard } from "@/components/milestone-card"
 
 interface Program {
   id: string
@@ -25,6 +27,17 @@ interface Program {
   milestones?: Milestone[]
 }
 
+interface Task {
+  id: string
+  title: string
+  description: string
+  completed: boolean
+  order_index: number
+  milestone_id: string
+  created_at: string
+  completed_at?: string
+}
+
 interface Milestone {
   id: string
   title: string
@@ -32,10 +45,12 @@ interface Milestone {
   order_index: number
   program_id: string
   program_name: string
+  status: "completed" | "in-progress" | "blocked"
   created_at: string
   completed_count?: number
   total_enrolled?: number
   completion_rate?: number
+  tasks: Task[]
 }
 
 interface Customer {
@@ -81,13 +96,16 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   const [newProgram, setNewProgram] = useState({ name: '', description: '', duration_weeks: 4, price: 0 })
   
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false)
-  const [newMilestone, setNewMilestone] = useState({ title: '', description: '', program_id: '', order_index: 1 })
+  const [newMilestone, setNewMilestone] = useState({ title: '', description: '', program_id: '' })
   
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [newMember, setNewMember] = useState({ email: '', name: '', program_id: '' })
 
+
+
   // UI states
   const [expandedPrograms, setExpandedPrograms] = useState<Set<string>>(new Set())
+  const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(new Set())
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null)
   const [activeTab, setActiveTab] = useState("programs")
   const [deletingPrograms, setDeletingPrograms] = useState<Set<string>>(new Set())
@@ -118,19 +136,53 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
             const milestonesData = await milestonesRes.json()
             console.log(`Milestones for program ${program.id}:`, milestonesData)
             if (milestonesData.success) {
-              const programMilestones = milestonesData.milestones.map((m: any) => ({
-                ...m,
-                program_id: program.id,
-                program_name: program.name
-              }))
+              // Fetch tasks for each milestone
+              const milestonesWithTasks = await Promise.all(
+                milestonesData.milestones.map(async (milestone: any) => {
+                  try {
+                    const tasksRes = await fetch(`/api/coach/${coachId}/programs/${program.id}/milestones/${milestone.id}/tasks`)
+                    if (tasksRes.ok) {
+                      const tasksData = await tasksRes.json()
+                      if (tasksData.success) {
+                        return {
+                          ...milestone,
+                          program_id: program.id,
+                          program_name: program.name,
+                          status: milestone.completion_rate === 100 ? "completed" as const :
+                                  milestone.completion_rate > 0 ? "in-progress" as const : "blocked" as const,
+                          tasks: tasksData.tasks || []
+                        }
+                      }
+                    }
+                    return {
+                      ...milestone,
+                      program_id: program.id,
+                      program_name: program.name,
+                      status: milestone.completion_rate === 100 ? "completed" as const :
+                              milestone.completion_rate > 0 ? "in-progress" as const : "blocked" as const,
+                      tasks: []
+                    }
+                  } catch (error) {
+                    console.error(`Error fetching tasks for milestone ${milestone.id}:`, error)
+                    return {
+                      ...milestone,
+                      program_id: program.id,
+                      program_name: program.name,
+                      status: milestone.completion_rate === 100 ? "completed" as const :
+                              milestone.completion_rate > 0 ? "in-progress" as const : "blocked" as const,
+                      tasks: []
+                    }
+                  }
+                })
+              )
               
               setPrograms(prev => prev.map(p => 
                 p.id === program.id 
-                  ? { ...p, milestones: programMilestones, milestones_count: programMilestones.length }
+                  ? { ...p, milestones: milestonesWithTasks, milestones_count: milestonesWithTasks.length }
                   : p
               ))
               
-              setMilestones(prev => [...prev.filter(m => m.program_id !== program.id), ...programMilestones])
+              setMilestones(prev => [...prev.filter(m => m.program_id !== program.id), ...milestonesWithTasks])
             }
           } catch (error) {
             console.error(`Error fetching milestones for program ${program.id}:`, error)
@@ -189,14 +241,13 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: newMilestone.title,
-          description: newMilestone.description,
-          order_index: newMilestone.order_index
+          description: newMilestone.description
         })
       })
       
       if (response.ok) {
         setAddMilestoneOpen(false)
-        setNewMilestone({ title: '', description: '', program_id: '', order_index: 1 })
+        setNewMilestone({ title: '', description: '', program_id: '' })
         fetchCoachData() // Refresh data
       } else {
         const errorData = await response.json()
@@ -219,6 +270,13 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
     } catch (error) {
       console.error('Error deleting milestone:', error)
     }
+  }
+
+
+
+  const handleTaskCreated = (milestoneId: number, newTaskData: any) => {
+    // Refresh data to show the new task
+    fetchCoachData()
   }
 
   const handleDeleteProgram = async (programId: string, programName: string) => {
@@ -297,6 +355,18 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
         newSet.delete(programId)
       } else {
         newSet.add(programId)
+      }
+      return newSet
+    })
+  }
+
+  const toggleMilestoneExpansion = (milestoneId: string) => {
+    setExpandedMilestones(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(milestoneId)) {
+        newSet.delete(milestoneId)
+      } else {
+        newSet.add(milestoneId)
       }
       return newSet
     })
@@ -532,43 +602,37 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                       </div>
                       
                       {program.milestones && program.milestones.length > 0 ? (
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                           {program.milestones
                             .sort((a, b) => a.order_index - b.order_index)
                             .map((milestone) => (
-                              <div key={milestone.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                <div className="flex items-center space-x-3">
-                                  <div className="w-8 h-8 rounded-full bg-blue-500 text-white text-sm flex items-center justify-center font-medium">
-                                    {milestone.order_index}
-                                  </div>
-                                  <div>
-                                    <div className="font-medium text-gray-900">{milestone.title}</div>
-                                    <div className="text-sm text-gray-600">{milestone.description}</div>
-                                    {milestone.completion_rate !== undefined && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        Completion: {milestone.completion_rate}% 
-                                        ({milestone.completed_count || 0}/{milestone.total_enrolled || 0})
-                                      </div>
-                                    )}
-                                  </div>
+                              <div key={milestone.id} className="relative">
+                                <div className="absolute left-4 top-6 flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold z-10">
+                                  {milestone.order_index}
                                 </div>
-                                <div className="flex items-center space-x-2">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setEditingMilestone(milestone)}
-                                    className="h-8 w-8 p-0"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteMilestone(milestone.id, program.id)}
-                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
+                                <div className="ml-16">
+                                  <MilestoneCard
+                                    milestone={{
+                                      id: parseInt(milestone.id),
+                                      title: milestone.title,
+                                      description: milestone.description,
+                                      status: milestone.status,
+                                      tasks: milestone.tasks.map(task => ({
+                                        ...task,
+                                        id: parseInt(task.id),
+                                        milestone_id: parseInt(task.milestone_id)
+                                      }))
+                                    }}
+                                    isExpanded={expandedMilestones.has(milestone.id)}
+                                    onToggle={() => toggleMilestoneExpansion(milestone.id)}
+                                    onDelete={(milestoneId) => handleDeleteMilestone(milestoneId.toString(), program.id)}
+                                    onEdit={(milestoneId, newTitle, newDescription) => {
+                                      // Handle edit here if needed
+                                      console.log('Edit milestone:', milestoneId, newTitle, newDescription)
+                                    }}
+                                    coachId={coachId}
+                                    programId={program.id}
+                                  />
                                 </div>
                               </div>
                             ))}
@@ -835,22 +899,15 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                 placeholder="Enter milestone description"
               />
             </div>
-            <div>
-              <Label htmlFor="milestone-order">Order</Label>
-              <Input
-                id="milestone-order"
-                type="number"
-                value={newMilestone.order_index}
-                onChange={(e) => setNewMilestone({ ...newMilestone, order_index: parseInt(e.target.value) })}
-                placeholder="Enter milestone order"
-              />
-            </div>
+
           </div>
           <DialogFooter>
             <Button onClick={handleAddMilestone}>Add Milestone</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+
 
       {/* Delete Program Confirmation Dialog */}
       <Dialog open={deleteProgramDialog.open} onOpenChange={(open) => setDeleteProgramDialog({ open, program: deleteProgramDialog.program })}>

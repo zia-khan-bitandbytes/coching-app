@@ -71,7 +71,7 @@ export async function POST(
 ) {
   try {
     const { coachId, programId } = await params
-    const { title, description, order_index } = await request.json()
+    const { title, description } = await request.json()
 
     // Verify the program belongs to the coach
     const programCheck = await pool.query(`
@@ -86,12 +86,21 @@ export async function POST(
       )
     }
 
-    // Create new milestone
+    // Get the next order_index by finding the max existing order_index for this program
+    const maxOrderResult = await pool.query(`
+      SELECT COALESCE(MAX(order_index), 0) as max_order 
+      FROM milestones 
+      WHERE program_id = $1
+    `, [programId])
+    
+    const nextOrderIndex = maxOrderResult.rows[0].max_order + 1
+
+    // Create new milestone with auto-incremented order_index
     const result = await pool.query(`
       INSERT INTO milestones (program_id, title, description, order_index)
       VALUES ($1, $2, $3, $4)
       RETURNING id, title, description, order_index, created_at
-    `, [programId, title, description, order_index])
+    `, [programId, title, description, nextOrderIndex])
 
     const newMilestone = result.rows[0]
 
