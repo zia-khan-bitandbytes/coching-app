@@ -17,12 +17,16 @@ interface SignupRequest {
   password: string
   name: string
   role?: 'coach' | 'customer' | 'super_admin'
+  invitation_data?: {
+    coach_id: string
+    program_id: string
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: SignupRequest = await request.json()
-    const { email, password, name, role = 'coach' } = body
+    const { email, password, name, role = 'coach', invitation_data } = body
 
     // Validate input
     if (!email || !password || !name) {
@@ -32,8 +36,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Only allow coaches to sign up directly
-    if (role !== 'coach') {
+    // Allow customers to sign up only if they have invitation data
+    if (role === 'customer' && !invitation_data) {
+      return NextResponse.json(
+        { error: 'Customers must be invited to sign up' },
+        { status: 400 }
+      )
+    }
+
+    // Only allow coaches to sign up directly (without invitation)
+    if (role !== 'coach' && !invitation_data) {
       return NextResponse.json(
         { error: 'Only coaches can sign up directly. Customers and super admins must be invited.' },
         { status: 400 }
@@ -53,7 +65,7 @@ export async function POST(request: NextRequest) {
     if (password.length < 6) {
       return NextResponse.json(
         { error: 'Password must be at least 6 characters long' },
-        { status: 400 }
+        { status: 500 }
       )
     }
 
@@ -74,10 +86,10 @@ export async function POST(request: NextRequest) {
     const saltRounds = 12
     const hashedPassword = await bcrypt.hash(password, saltRounds)
 
-    // Create new user in database (only coaches can sign up)
+    // Create new user in database
     const result = await pool.query(
       'INSERT INTO users (email, name, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
-      [email.toLowerCase(), name, hashedPassword, 'coach']
+      [email.toLowerCase(), name, hashedPassword, role]
     )
 
     const newUser = result.rows[0] as User
@@ -86,7 +98,7 @@ export async function POST(request: NextRequest) {
     const { password: _, ...userWithoutPassword } = newUser
     
     const response = NextResponse.json({
-      message: 'Coach account created successfully',
+      message: `${role === 'coach' ? 'Coach' : 'Customer'} account created successfully`,
       user: userWithoutPassword
     }, { status: 201 })
     

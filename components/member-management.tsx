@@ -16,8 +16,9 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Plus, Search, MoreHorizontal, Trash2, Edit } from "lucide-react"
+import { Plus, Search, MoreHorizontal, Trash2, Edit, Mail, Copy, Check } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { toast } from "@/hooks/use-toast"
 
 const members = [
   {
@@ -65,6 +66,19 @@ const members = [
 export function MemberManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [invitationData, setInvitationData] = useState<{
+    email: string
+    name: string
+    program: string
+  }>({
+    email: "",
+    name: "",
+    program: ""
+  })
+  const [isInvitationDialogOpen, setIsInvitationDialogOpen] = useState(false)
+  const [invitationLink, setInvitationLink] = useState("")
+  const [showInvitationLink, setShowInvitationLink] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   const filteredMembers = members.filter(
     (member) =>
@@ -85,6 +99,81 @@ export function MemberManagement() {
     }
   }
 
+  const handleSendInvitation = async () => {
+    if (!invitationData.email || !invitationData.name || !invitationData.program) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      // For demo purposes, we'll use a mock coach ID
+      // In a real app, you'd get this from the current user context
+      const coachId = "1" // This should come from authentication context
+      
+      const response = await fetch(`/api/coach/${coachId}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: invitationData.email,
+          name: invitationData.name,
+          program_id: invitationData.program
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setInvitationLink(data.invitationLink)
+        setShowInvitationLink(true)
+        toast({
+          title: "Success",
+          description: "Invitation email sent successfully!",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || 'Failed to send invitation',
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: 'Failed to send invitation',
+        variant: "destructive"
+      })
+    }
+  }
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(invitationLink)
+      setCopied(true)
+      toast({
+        title: "Copied!",
+        description: "Invitation link copied to clipboard",
+      })
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: 'Failed to copy link',
+        variant: "destructive"
+      })
+    }
+  }
+
+  const resetInvitationForm = () => {
+    setInvitationData({ email: "", name: "", program: "" })
+    setShowInvitationLink(false)
+    setInvitationLink("")
+    setCopied(false)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -92,42 +181,110 @@ export function MemberManagement() {
           <h1 className="text-3xl font-bold text-gray-900">Member Management</h1>
           <p className="text-gray-600 mt-1">Manage your coaching clients and their progress</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={isInvitationDialogOpen} onOpenChange={setIsInvitationDialogOpen}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Member
+              <Mail className="h-4 w-4 mr-2" />
+              Send Invitation
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Add New Member</DialogTitle>
-              <DialogDescription>Add a new client to your coaching program</DialogDescription>
+              <DialogTitle>Send Program Invitation</DialogTitle>
+              <DialogDescription>Send an email invitation to join your coaching program</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input id="name" placeholder="Enter full name" />
+            
+            {!showInvitationLink ? (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="invite-name">Full Name</Label>
+                  <Input 
+                    id="invite-name" 
+                    placeholder="Enter full name"
+                    value={invitationData.name}
+                    onChange={(e) => setInvitationData({ ...invitationData, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-email">Email</Label>
+                  <Input 
+                    id="invite-email" 
+                    type="email" 
+                    placeholder="Enter email address"
+                    value={invitationData.email}
+                    onChange={(e) => setInvitationData({ ...invitationData, email: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="invite-program">Program</Label>
+                  <Select value={invitationData.program} onValueChange={(value) => setInvitationData({ ...invitationData, program: value })}>
+                    <SelectTrigger id="invite-program">
+                      <SelectValue placeholder="Select a program" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">Business Growth Program</SelectItem>
+                      <SelectItem value="2">Leadership Mastery</SelectItem>
+                      <SelectItem value="3">Sales Excellence</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={handleSendInvitation} className="w-full">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Invitation Email
+                </Button>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="Enter email address" />
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-green-800 mb-2">
+                    <Check className="h-5 w-5" />
+                    <span className="font-medium">Invitation Sent!</span>
+                  </div>
+                  <p className="text-sm text-green-700">
+                    An email invitation has been sent to {invitationData.email}
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Invitation Link</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      value={invitationLink} 
+                      readOnly 
+                      className="text-sm"
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={copyToClipboard}
+                      className="min-w-[80px]"
+                    >
+                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copied ? 'Copied!' : 'Copy'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    You can also copy and share this link directly
+                  </p>
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={resetInvitationForm} 
+                    variant="outline" 
+                    className="flex-1"
+                  >
+                    Send Another
+                  </Button>
+                  <Button 
+                    onClick={() => setIsInvitationDialogOpen(false)} 
+                    className="flex-1"
+                  >
+                    Close
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="program">Program</Label>
-                <Select>
-                  <SelectTrigger id="program">
-                    <SelectValue placeholder="Select a program" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="business-growth">Business Growth Program</SelectItem>
-                    <SelectItem value="leadership">Leadership Mastery</SelectItem>
-                    <SelectItem value="sales">Sales Excellence</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button className="w-full">Add Member</Button>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>

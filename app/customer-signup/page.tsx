@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -16,7 +16,6 @@ import {
   Mail, 
   Phone, 
   Camera, 
-  CreditCard, 
   MapPin, 
   Calendar,
   Building,
@@ -68,13 +67,6 @@ interface SignupFormData {
   preferredContact: string
   timezone: string
   
-  // Payment Information
-  cardNumber: string
-  cardHolderName: string
-  expiryDate: string
-  cvv: string
-  billingAddress: string
-  
   // Account Security
   password: string
   confirmPassword: string
@@ -87,6 +79,7 @@ export default function CustomerSignupPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [invitationData, setInvitationData] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const [formData, setFormData] = useState<SignupFormData>({
@@ -110,22 +103,46 @@ export default function CustomerSignupPage() {
     secondaryGoals: [],
     preferredContact: "email",
     timezone: "",
-    cardNumber: "",
-    cardHolderName: "",
-    expiryDate: "",
-    cvv: "",
-    billingAddress: "",
     password: "",
     confirmPassword: "",
     acceptTerms: false,
     marketingEmails: false
   })
 
+  // Check for invitation data on component mount
+  useEffect(() => {
+    const storedInvitationData = localStorage.getItem('invitationData')
+    if (storedInvitationData) {
+      try {
+        const parsedData = JSON.parse(storedInvitationData)
+        setInvitationData(parsedData)
+        
+        // Pre-fill form with invitation data
+        if (parsedData.email) {
+          setFormData(prev => ({
+            ...prev,
+            email: parsedData.email
+          }))
+        }
+        
+        if (parsedData.name) {
+          const nameParts = parsedData.name.split(' ')
+          setFormData(prev => ({
+            ...prev,
+            firstName: nameParts[0] || '',
+            lastName: nameParts.slice(1).join(' ') || ''
+          }))
+        }
+      } catch (error) {
+        console.error('Error parsing invitation data:', error)
+      }
+    }
+  }, [])
+
   const steps = [
     { id: 1, title: "Welcome", icon: Star },
     { id: 2, title: "Personal Info", icon: User },
-    { id: 3, title: "Payment", icon: CreditCard },
-    { id: 4, title: "Security", icon: Shield }
+    { id: 3, title: "Security", icon: Shield }
   ]
 
   const industries = [
@@ -192,16 +209,61 @@ export default function CustomerSignupPage() {
   const handleSubmit = async () => {
     setIsLoading(true)
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      showSuccessToast("Account created successfully! Welcome to your coaching journey.")
-      
-      // Create user object and save to localStorage
+      // Create user object
       const newUser = {
         id: Date.now().toString(),
         name: formData.firstName + " " + formData.lastName,
         email: formData.email,
         role: "customer"
+      }
+      
+      // If user came from invitation, create account via API
+      if (invitationData) {
+        const response = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: formData.email,
+            name: newUser.name,
+            password: formData.password,
+            role: 'customer',
+            invitation_data: {
+              coach_id: invitationData.coach_id,
+              program_id: invitationData.program_id
+            }
+          })
+        })
+        
+        if (response.ok) {
+          const result = await response.json()
+          newUser.id = result.user.id
+          
+          // Link customer to coach and program
+          await fetch('/api/invite/link-customer', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              customer_id: newUser.id,
+              coach_id: invitationData.coach_id,
+              program_id: invitationData.program_id
+            })
+          })
+          
+          // Clear invitation data
+          localStorage.removeItem('invitationData')
+          
+          showSuccessToast("Account created successfully! Welcome to your coaching journey.")
+        } else {
+          const errorData = await response.json()
+          throw new Error(errorData.error || 'Failed to create account')
+        }
+      } else {
+        // Regular signup (no invitation)
+        showSuccessToast("Account created successfully! Welcome to your coaching journey.")
       }
       
       // Save user to localStorage
@@ -210,7 +272,7 @@ export default function CustomerSignupPage() {
       // Redirect to customer dashboard
       window.location.href = "/dashboard"
     } catch (error) {
-      showErrorToast("Failed to create account. Please try again.")
+      showErrorToast(error instanceof Error ? error.message : "Failed to create account. Please try again.")
     } finally {
       setIsLoading(false)
     }
@@ -361,8 +423,7 @@ export default function CustomerSignupPage() {
                     <CardTitle className="flex items-center gap-2 text-2xl">
                       {currentStep === 1 && <Star className="h-6 w-6 text-yellow-500" />}
                       {currentStep === 2 && <User className="h-6 w-6 text-blue-500" />}
-                      {currentStep === 3 && <CreditCard className="h-6 w-6 text-orange-500" />}
-                      {currentStep === 4 && <Shield className="h-6 w-6 text-red-500" />}
+                      {currentStep === 3 && <Shield className="h-6 w-6 text-red-500" />}
                       {steps[currentStep - 1].title}
                     </CardTitle>
                   </CardHeader>
@@ -374,6 +435,23 @@ export default function CustomerSignupPage() {
                         animate={{ opacity: 1, y: 0 }}
                         className="text-center space-y-6"
                       >
+                        {invitationData && (
+                          <motion.div
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            className="p-4 bg-blue-50 rounded-lg border border-blue-200"
+                          >
+                            <div className="flex items-center gap-2 justify-center mb-2">
+                              <CheckCircle className="h-5 w-5 text-blue-600" />
+                              <span className="font-semibold text-blue-800">Invitation Accepted!</span>
+                            </div>
+                            <p className="text-sm text-blue-700">
+                              You're completing your profile to join the coaching program. 
+                              Your email ({invitationData.email}) has been pre-filled.
+                            </p>
+                          </motion.div>
+                        )}
+                        
                         <div className="space-y-4">
                           <motion.div
                             animate={{ scale: [1, 1.1, 1] }}
@@ -383,11 +461,13 @@ export default function CustomerSignupPage() {
                             <Star className="h-10 w-10 text-white" />
                           </motion.div>
                           <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                            Welcome to Your Coaching Journey
+                            {invitationData ? 'Complete Your Profile' : 'Welcome to Your Coaching Journey'}
                           </h2>
                           <p className="text-gray-600 max-w-2xl mx-auto">
-                            Join thousands of professionals who have transformed their careers with personalized coaching. 
-                            Let's create your success story together.
+                            {invitationData 
+                              ? 'You\'re almost there! Complete your profile to start your coaching journey.'
+                              : 'Join thousands of professionals who have transformed their careers with personalized coaching. Let\'s create your success story together.'
+                            }
                           </p>
                         </div>
                         
@@ -451,7 +531,14 @@ export default function CustomerSignupPage() {
                               value={formData.email}
                               onChange={(e) => handleInputChange('email', e.target.value)}
                               placeholder="Enter your email"
+                              readOnly={!!invitationData}
+                              className={invitationData ? "bg-gray-50 cursor-not-allowed" : ""}
                             />
+                            {invitationData && (
+                              <p className="text-xs text-blue-600">
+                                Email pre-filled from your invitation
+                              </p>
+                            )}
                           </div>
                           <div className="space-y-2">
                             <Label htmlFor="phone">Phone Number</Label>
@@ -529,81 +616,8 @@ export default function CustomerSignupPage() {
                       </motion.div>
                     )}
 
-                    {/* Step 3: Payment */}
+                    {/* Step 3: Security */}
                     {currentStep === 3 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="space-y-6"
-                      >
-                        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Shield className="h-5 w-5 text-blue-600" />
-                            <span className="font-semibold text-blue-800">Secure Payment</span>
-                          </div>
-                          <p className="text-sm text-blue-700">
-                            Your payment information is encrypted and secure. We use industry-standard SSL encryption.
-                          </p>
-                        </div>
-
-                        <div className="grid md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <Label htmlFor="cardNumber">Card Number *</Label>
-                            <Input
-                              id="cardNumber"
-                              value={formData.cardNumber}
-                              onChange={(e) => handleInputChange('cardNumber', e.target.value)}
-                              placeholder="1234 5678 9012 3456"
-                              maxLength={19}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="cardHolderName">Cardholder Name *</Label>
-                            <Input
-                              id="cardHolderName"
-                              value={formData.cardHolderName}
-                              onChange={(e) => handleInputChange('cardHolderName', e.target.value)}
-                              placeholder="Enter cardholder name"
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid md:grid-cols-3 gap-6">
-                          <div className="space-y-2">
-                            <Label htmlFor="expiryDate">Expiry Date *</Label>
-                            <Input
-                              id="expiryDate"
-                              value={formData.expiryDate}
-                              onChange={(e) => handleInputChange('expiryDate', e.target.value)}
-                              placeholder="MM/YY"
-                              maxLength={5}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="cvv">CVV *</Label>
-                            <Input
-                              id="cvv"
-                              value={formData.cvv}
-                              onChange={(e) => handleInputChange('cvv', e.target.value)}
-                              placeholder="123"
-                              maxLength={4}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="billingAddress">Billing Address</Label>
-                            <Input
-                              id="billingAddress"
-                              value={formData.billingAddress}
-                              onChange={(e) => handleInputChange('billingAddress', e.target.value)}
-                              placeholder="Enter billing address"
-                            />
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {/* Step 4: Security */}
-                    {currentStep === 4 && (
                       <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}

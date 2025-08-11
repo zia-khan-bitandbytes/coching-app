@@ -3,10 +3,10 @@ import pool from '@/lib/db'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { coachId: string } }
+  { params }: { params: Promise<{ coachId: string }> }
 ) {
   try {
-    const coachId = await params.coachId
+    const { coachId } = await params
 
     // Get coach customers with their stats
     const customersResult = await pool.query(`

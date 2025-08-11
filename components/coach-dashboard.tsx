@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Users, TrendingUp, CheckCircle, DollarSign, BookOpen, Target, Calendar, Plus, UserPlus, ChevronDown, ChevronRight, Edit, Trash2, AlertTriangle } from "lucide-react"
+import { Users, TrendingUp, CheckCircle, DollarSign, BookOpen, Target, Calendar, Plus, UserPlus, ChevronDown, ChevronRight, Edit, Trash2, AlertTriangle, Mail, Check, Copy } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Program {
@@ -85,6 +85,21 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [newMember, setNewMember] = useState({ email: '', name: '', program_id: '' })
+  
+  // Invitation states
+  const [invitationData, setInvitationData] = useState<{
+    email: string
+    name: string
+    program_id: string
+  }>({
+    email: "",
+    name: "",
+    program_id: ""
+  })
+  const [isInvitationDialogOpen, setIsInvitationDialogOpen] = useState(false)
+  const [invitationLink, setInvitationLink] = useState("")
+  const [showInvitationLink, setShowInvitationLink] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   // UI states
   const [expandedPrograms, setExpandedPrograms] = useState<Set<string>>(new Set())
@@ -288,6 +303,92 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
     } catch (error) {
       console.error('Error adding member:', error)
     }
+  }
+
+  const handleSendInvitation = async () => {
+    if (!invitationData.email || !invitationData.name || !invitationData.program_id) {
+      toast({
+        title: "Error",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(invitationData.email.trim())) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Trim whitespace from email and name
+    const cleanEmail = invitationData.email.trim()
+    const cleanName = invitationData.name.trim()
+
+    try {
+      const response = await fetch(`/api/coach/${coachId}/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: invitationData.email,
+          name: invitationData.name,
+          program_id: invitationData.program_id
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setInvitationLink(data.invitationLink)
+        setShowInvitationLink(true)
+        toast({
+          title: "Success",
+          description: "Invitation email sent successfully!",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: data.error || 'Failed to send invitation',
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: 'Failed to send invitation',
+        variant: "destructive"
+      })
+    }
+  }
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(invitationLink)
+      setCopied(true)
+      toast({
+        title: "Copied!",
+        description: "Invitation link copied to clipboard",
+      })
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: 'Failed to copy link',
+        variant: "destructive"
+      })
+    }
+  }
+
+  const resetInvitationForm = () => {
+    setInvitationData({ email: "", name: "", program_id: "" })
+    setShowInvitationLink(false)
+    setInvitationLink("")
+    setCopied(false)
   }
 
   const toggleProgramExpansion = (programId: string) => {
@@ -594,57 +695,112 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
               <h3 className="text-lg font-semibold">Your Customers</h3>
               <p className="text-sm text-gray-600">Customers enrolled in your programs</p>
             </div>
-            <Dialog open={addMemberOpen} onOpenChange={setAddMemberOpen}>
+            <Dialog open={isInvitationDialogOpen} onOpenChange={setIsInvitationDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add Member
+                  <Mail className="h-4 w-4 mr-2" />
+                  Send Invitation
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Add New Member</DialogTitle>
-                  <DialogDescription>Add a customer to one of your programs</DialogDescription>
+                  <DialogTitle>Send Program Invitation</DialogTitle>
+                  <DialogDescription>Send an email invitation to join your coaching program</DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="member-name">Name</Label>
-                    <Input
-                      id="member-name"
-                      value={newMember.name}
-                      onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                      placeholder="Enter customer name"
-                    />
+                
+                {!showInvitationLink ? (
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="invite-name">Full Name</Label>
+                      <Input
+                        id="invite-name"
+                        value={invitationData.name}
+                        onChange={(e) => setInvitationData({ ...invitationData, name: e.target.value })}
+                        placeholder="Enter full name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="invite-email">Email</Label>
+                      <Input
+                        id="invite-email"
+                        type="email"
+                        value={invitationData.email}
+                        onChange={(e) => setInvitationData({ ...invitationData, email: e.target.value })}
+                        placeholder="Enter customer email"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="invite-program">Program</Label>
+                      <Select value={invitationData.program_id} onValueChange={(value) => setInvitationData({ ...invitationData, program_id: value })}>
+                        <SelectTrigger id="invite-program">
+                          <SelectValue placeholder="Select a program" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {programs.map((program) => (
+                            <SelectItem key={program.id} value={program.id}>
+                              {program.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button onClick={handleSendInvitation} className="w-full">
+                      <Mail className="h-4 w-4 mr-2" />
+                      Send Invitation Email
+                    </Button>
                   </div>
-                  <div>
-                    <Label htmlFor="member-email">Email</Label>
-                    <Input
-                      id="member-email"
-                      type="email"
-                      value={newMember.email}
-                      onChange={(e) => setNewMember({ ...newMember, email: e.target.value })}
-                      placeholder="Enter customer email"
-                    />
+                ) : (
+                  <div className="space-y-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-green-800 mb-2">
+                        <Check className="h-5 w-5" />
+                        <span className="font-medium">Invitation Sent!</span>
+                      </div>
+                      <p className="text-sm text-green-700">
+                        An email invitation has been sent to {invitationData.email}
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Invitation Link</Label>
+                      <div className="flex gap-2">
+                        <Input 
+                          value={invitationLink} 
+                          readOnly 
+                          className="text-sm"
+                        />
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          onClick={copyToClipboard}
+                          className="min-w-[80px]"
+                        >
+                          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                          {copied ? 'Copied!' : 'Copy'}
+                        </Button>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        You can also copy and share this link directly
+                      </p>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        onClick={resetInvitationForm} 
+                        variant="outline" 
+                        className="flex-1"
+                      >
+                        Send Another
+                      </Button>
+                      <Button 
+                        onClick={() => setIsInvitationDialogOpen(false)} 
+                        className="flex-1"
+                      >
+                        Close
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="member-program">Program</Label>
-                    <Select value={newMember.program_id} onValueChange={(value) => setNewMember({ ...newMember, program_id: value })}>
-                      <SelectTrigger id="member-program">
-                        <SelectValue placeholder="Select a program" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {programs.map((program) => (
-                          <SelectItem key={program.id} value={program.id}>
-                            {program.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleAddMember}>Add Member</Button>
-                </DialogFooter>
+                )}
               </DialogContent>
             </Dialog>
           </div>
