@@ -114,12 +114,15 @@ export function TaskCreationDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button
-          className="p-2.5 text-green-600 hover:text-white hover:bg-green-600 bg-green-50 border border-green-200 rounded-lg shadow-sm transition-all duration-200"
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-green-600 border-green-200 hover:text-green-700 hover:bg-green-50 hover:border-green-300"
           title="Add task"
         >
-          <Plus className="h-5 w-5" />
-        </button>
+          <Plus className="h-3 w-3 mr-1" />
+          Add Task
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>

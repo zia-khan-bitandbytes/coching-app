@@ -6,6 +6,7 @@ import { TaskItem } from "@/components/task-item"
 import { TaskCreationDialog } from "@/components/task-creation-dialog"
 import { CheckCircle, Clock, Lock, ChevronDown, ChevronUp, Trash2, Edit3, Check, X } from "lucide-react"
 import { Task, Milestone } from "@/lib/types"
+import { useToast } from "@/hooks/use-toast"
 
 interface MilestoneCardProps {
   milestone: Milestone
@@ -15,14 +16,20 @@ interface MilestoneCardProps {
   onEdit?: (milestoneId: number, newTitle: string, newDescription: string) => void
   coachId?: string
   programId?: string
+  allowTaskCreation?: boolean
+  customerId?: string
+  allMilestones?: any[]
+  onMilestoneCompleted?: (milestoneId: number) => void
 }
 
-export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdit, coachId, programId }: MilestoneCardProps) {
+export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdit, coachId, programId, allowTaskCreation = true, customerId, allMilestones = [], onMilestoneCompleted }: MilestoneCardProps) {
+  const { toast } = useToast()
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(milestone.title)
   const [editDescription, setEditDescription] = useState(milestone.description)
   const [tasks, setTasks] = useState<Task[]>(milestone.tasks || [])
   const [isLoadingTasks, setIsLoadingTasks] = useState(false)
+  const [isMarkingComplete, setIsMarkingComplete] = useState(false)
 
   // Fetch tasks when milestone is expanded and we have required props
   useEffect(() => {
@@ -69,18 +76,71 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
 
   const handleTaskDeleted = (taskId: number) => {
     // Remove the deleted task from the list
-    setTasks(prev => prev.filter(task => task.id !== taskId))
+    const updatedTasks = tasks.filter(task => task.id !== taskId)
+    setTasks(updatedTasks)
+    
+    // Note: We no longer automatically update milestone status when tasks are deleted
+    // Milestone completion is now only manual through the "Mark as Complete" button
   }
 
   const handleTaskUpdated = (taskId: number, updatedTask: any) => {
     // Update the task in the list
-    setTasks(prev => prev.map(task => 
+    const updatedTasks = tasks.map(task => 
       task.id === taskId ? { 
         ...task, 
         ...updatedTask,
         requiresUpload: updatedTask.requiresUpload !== undefined ? updatedTask.requiresUpload : task.requiresUpload
       } : task
-    ))
+    )
+    setTasks(updatedTasks)
+
+    // Note: We no longer automatically update milestone status when all tasks are completed
+    // Milestone completion is now only manual through the "Mark as Complete" button
+  }
+
+
+
+  // Check if all tasks are completed for button state
+  const areAllTasksCompleted = () => {
+    if (tasks.length === 0) return false
+    return tasks.every(task => task.completed || task.status === "completed")
+  }
+
+  // Check if milestone is unlocked (previous milestones are completed)
+  const isMilestoneUnlocked = () => {
+    if (allMilestones.length === 0) return true
+    
+    const currentMilestoneOrder = (milestone as any).order_index || 0
+    
+    // First milestone (order_index = 1) is always unlocked
+    if (currentMilestoneOrder === 1) return true
+    
+    // For all other milestones, check if previous milestone is completed
+    const previousMilestone = allMilestones.find(m => 
+      ((m as any).order_index || 0) === currentMilestoneOrder - 1
+    )
+    
+    // Check if previous milestone is completed (either by completed property or status)
+    const isPreviousCompleted = previousMilestone ? 
+      (previousMilestone.completed === true || previousMilestone.status === "completed") : false
+    
+    // Debug logging for milestone 3
+    if (currentMilestoneOrder === 3) {
+      console.log('=== Milestone 3 Debug ===')
+      console.log('Current milestone order:', currentMilestoneOrder)
+      console.log('All milestones:', allMilestones)
+      console.log('Previous milestone (order 2):', previousMilestone)
+      console.log('Previous milestone completed:', isPreviousCompleted)
+      console.log('Previous milestone.completed:', previousMilestone?.completed)
+      console.log('Previous milestone.status:', previousMilestone?.status)
+    }
+    
+    return isPreviousCompleted
+  }
+
+  // Check if milestone is locked
+  const isMilestoneLocked = () => {
+    return !isMilestoneUnlocked() && milestone.status !== "completed"
   }
 
   const getStatusIcon = (status: string) => {
@@ -142,12 +202,60 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
     setEditDescription(milestone.description)
   }
 
+  const handleMarkMilestoneComplete = async () => {
+    if (!customerId) return
+
+    setIsMarkingComplete(true)
+    try {
+      const response = await fetch(`/api/customer/${customerId}/milestones/${milestone.id}/progress`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          completed: true,
+          notes: 'Manually marked as complete by customer'
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          // Call the parent's onMilestoneCompleted callback to update the UI
+          if (onMilestoneCompleted) {
+            onMilestoneCompleted(milestone.id)
+          }
+          
+          // Show success toast
+          toast({
+            title: "Milestone Completed!",
+            description: `"${milestone.title}" has been marked as complete.`,
+            variant: "default",
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error marking milestone complete:', error)
+      toast({
+        title: "Error",
+        description: "Failed to mark milestone as complete. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsMarkingComplete(false)
+    }
+  }
+
   return (
-    <Card className={milestone.status === "in-progress" ? "border-blue-200" : ""}>
+    <Card className={`${milestone.status === "in-progress" ? "border-blue-200" : ""} ${isMilestoneLocked() ? "opacity-60" : ""}`}>
       <CardHeader className="">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
-            {getStatusIcon(milestone.status)}
+            {isMilestoneLocked() ? (
+              <Lock className="h-5 w-5 text-gray-400" />
+            ) : (
+              getStatusIcon(milestone.status)
+            )}
             {isEditing ? (
               <div className="flex-1 space-y-2">
                 <input
@@ -168,7 +276,14 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                 />
               </div>
             ) : (
-              <CardTitle className="text-lg">{milestone.title}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">{milestone.title}</CardTitle>
+                {isMilestoneLocked() && (
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                    Locked
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <div className="flex items-center gap-2">
@@ -201,7 +316,7 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                     <Edit3 className="h-5 w-5" />
                   </button>
                 )}
-                {coachId && programId && (
+                {coachId && programId && allowTaskCreation && (
                   <TaskCreationDialog
                     milestoneId={milestone.id}
                     milestoneTitle={milestone.title}
@@ -229,10 +344,17 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onToggle();
+                        if (!isMilestoneLocked()) {
+                          onToggle();
+                        }
                       }}
-                      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all duration-200"
-                      title={isExpanded ? "Hide tasks" : "Show tasks"}
+                      className={`p-2 rounded-md transition-all duration-200 ${
+                        isMilestoneLocked() 
+                          ? 'text-gray-400 cursor-not-allowed' 
+                          : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                      }`}
+                      title={isMilestoneLocked() ? "Complete previous milestones first" : (isExpanded ? "Hide tasks" : "Show tasks")}
+                      disabled={isMilestoneLocked()}
                     >
                       {isExpanded ? 
                         <ChevronUp className="h-5 w-5" /> : 
@@ -277,13 +399,16 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                         title: task.title,
                         description: task.description,
                         status: task.status || (task.completed ? "completed" : "in-progress"),
-                        requiresUpload: task.requiresUpload
+                        requiresUpload: task.requiresUpload,
+                        order_index: task.order_index
                       }}
                       onDelete={handleTaskDeleted}
                       onUpdate={handleTaskUpdated}
                       coachId={coachId}
                       programId={programId}
                       milestoneId={milestone.id}
+                      allowEdit={allowTaskCreation}
+                      allTasks={tasks}
                     />
                   </div>
                 ))}
@@ -295,7 +420,63 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                 </div>
                 <div className="text-sm text-gray-500 mb-1">No tasks yet</div>
                 <div className="text-xs text-gray-400">
-                  {coachId && programId ? "Click the + button above to add your first task!" : "Tasks will appear here when added."}
+                  {coachId && programId && allowTaskCreation ? "Click the + button above to add your first task!" : "Tasks will appear here when your coach adds them."}
+                </div>
+              </div>
+            )}
+            
+            {/* Mark Milestone Complete Button - Only show for customers when milestone is not already completed and unlocked */}
+            {customerId && milestone.status !== "completed" && !isMilestoneLocked() && (
+              <div className="flex flex-col items-center mt-6 pt-4 border-t border-gray-200">
+                {/* Task completion progress indicator */}
+                <div className="mb-3 text-center">
+                  <div className="text-sm text-gray-600 mb-1">
+                    Task Progress: {tasks.filter(task => task.completed || task.status === "completed").length} of {tasks.length} completed
+                  </div>
+                  <div className="w-48 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ 
+                        width: `${tasks.length > 0 ? (tasks.filter(task => task.completed || task.status === "completed").length / tasks.length) * 100 : 0}%` 
+                      }}
+                    ></div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleMarkMilestoneComplete}
+                  disabled={isMarkingComplete || !areAllTasksCompleted()}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                    areAllTasksCompleted() 
+                      ? 'bg-green-600 hover:bg-green-700 text-white' 
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  } ${isMarkingComplete ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {isMarkingComplete ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Marking Complete...
+                    </>
+                  ) : areAllTasksCompleted() ? (
+                    <>
+                      <CheckCircle className="h-4 w-4" />
+                      Mark as Complete
+                    </>
+                  ) : (
+                    <>
+                      <Clock className="h-4 w-4" />
+                      Complete All Tasks First
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+            
+            {/* Completed Milestone Indicator */}
+            {customerId && milestone.status === "completed" && (
+              <div className="flex justify-center mt-6 pt-4 border-t border-gray-200">
+                <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg font-medium">
+                  <CheckCircle className="h-4 w-4" />
+                  Milestone Completed
                 </div>
               </div>
             )}

@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, TrendingUp, CheckCircle, DollarSign, BookOpen, Target, Calendar, Plus, UserPlus, ChevronDown, ChevronRight, Edit, Trash2, AlertTriangle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TaskCreationDialog } from "@/components/task-creation-dialog"
-import { MilestoneCard } from "@/components/milestone-card"
 
 interface Program {
   id: string
@@ -45,12 +44,11 @@ interface Milestone {
   order_index: number
   program_id: string
   program_name: string
-  status: "completed" | "in-progress" | "blocked"
   created_at: string
   completed_count?: number
   total_enrolled?: number
   completion_rate?: number
-  tasks: Task[]
+  tasks?: Task[]
 }
 
 interface Customer {
@@ -101,6 +99,10 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [newMember, setNewMember] = useState({ email: '', name: '', program_id: '' })
 
+  // Task editing states
+  const [editTaskOpen, setEditTaskOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<{ milestoneId: string; taskId: string; task: Task } | null>(null)
+  const [editTaskData, setEditTaskData] = useState({ title: '', description: '', requiresUpload: false })
 
 
   // UI states
@@ -148,9 +150,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                           ...milestone,
                           program_id: program.id,
                           program_name: program.name,
-                          status: milestone.completion_rate === 100 ? "completed" as const :
-                                  milestone.completion_rate > 0 ? "in-progress" as const : "blocked" as const,
-                          tasks: tasksData.tasks || []
+                          tasks: tasksData.tasks
                         }
                       }
                     }
@@ -158,8 +158,6 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                       ...milestone,
                       program_id: program.id,
                       program_name: program.name,
-                      status: milestone.completion_rate === 100 ? "completed" as const :
-                              milestone.completion_rate > 0 ? "in-progress" as const : "blocked" as const,
                       tasks: []
                     }
                   } catch (error) {
@@ -168,8 +166,6 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                       ...milestone,
                       program_id: program.id,
                       program_name: program.name,
-                      status: milestone.completion_rate === 100 ? "completed" as const :
-                              milestone.completion_rate > 0 ? "in-progress" as const : "blocked" as const,
                       tasks: []
                     }
                   }
@@ -277,6 +273,128 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   const handleTaskCreated = (milestoneId: number, newTaskData: any) => {
     // Refresh data to show the new task
     fetchCoachData()
+  }
+
+  const handleTaskUpdated = (milestoneId: number, taskId: number, updatedTask: any) => {
+    // Refresh data to show the updated task
+    fetchCoachData()
+  }
+
+  const handleTaskDeleted = (milestoneId: number, taskId: number) => {
+    // Refresh data to show the deleted task
+    fetchCoachData()
+  }
+
+  const handleEditTask = (milestoneId: string, taskId: string, task: Task) => {
+    // Open edit task dialog and populate form
+    setEditingTask({ milestoneId, taskId, task })
+    setEditTaskData({
+      title: task.title,
+      description: task.description || '',
+      requiresUpload: (task as any).requiresUpload || false
+    })
+    setEditTaskOpen(true)
+  }
+
+  const handleDeleteTask = async (milestoneId: string, taskId: string, taskTitle: string) => {
+    if (!confirm(`Are you sure you want to delete the task "${taskTitle}"?`)) {
+      return
+    }
+
+    try {
+      // Find the program ID for this milestone
+      const program = programs.find(p => p.milestones?.some(m => m.id === milestoneId))
+      if (!program) {
+        toast({
+          title: "Error",
+          description: "Could not find the program for this milestone.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const response = await fetch(`/api/coach/${coachId}/programs/${program.id}/milestones/${milestoneId}/tasks?taskId=${taskId}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Task deleted",
+          description: `"${taskTitle}" has been successfully deleted.`,
+          variant: "default",
+        })
+        fetchCoachData() // Refresh data
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to delete task:', errorData)
+        toast({
+          title: "Error",
+          description: "Failed to delete task. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error deleting task:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete task. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleSaveTaskEdit = async () => {
+    if (!editingTask) return
+
+    try {
+      // Find the program ID for this milestone
+      const program = programs.find(p => p.milestones?.some(m => m.id === editingTask.milestoneId))
+      if (!program) {
+        toast({
+          title: "Error",
+          description: "Could not find the program for this milestone.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const response = await fetch(`/api/coach/${coachId}/programs/${program.id}/milestones/${editingTask.milestoneId}/tasks?taskId=${editingTask.taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: editTaskData.title,
+          description: editTaskData.description,
+          requiresUpload: editTaskData.requiresUpload
+        })
+      })
+
+      if (response.ok) {
+        toast({
+          title: "Task updated",
+          description: `"${editTaskData.title}" has been successfully updated.`,
+          variant: "default",
+        })
+        setEditTaskOpen(false)
+        setEditingTask(null)
+        setEditTaskData({ title: '', description: '', requiresUpload: false })
+        fetchCoachData() // Refresh data
+      } else {
+        const errorData = await response.json()
+        console.error('Failed to update task:', errorData)
+        toast({
+          title: "Error",
+          description: "Failed to update task. Please try again.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error updating task:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update task. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDeleteProgram = async (programId: string, programName: string) => {
@@ -602,38 +720,119 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                       </div>
                       
                       {program.milestones && program.milestones.length > 0 ? (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           {program.milestones
                             .sort((a, b) => a.order_index - b.order_index)
                             .map((milestone) => (
-                              <div key={milestone.id} className="relative">
-                                <div className="absolute left-4 top-6 flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold z-10">
-                                  {milestone.order_index}
+                              <div key={milestone.id} className="bg-gray-50 rounded-lg border">
+                                <div className="flex items-center justify-between p-3">
+                                  <div className="flex items-center space-x-3">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => toggleMilestoneExpansion(milestone.id)}
+                                      className="p-1 h-6 w-6"
+                                    >
+                                      {expandedMilestones.has(milestone.id) ? (
+                                        <ChevronDown className="h-4 w-4" />
+                                      ) : (
+                                        <ChevronRight className="h-4 w-4" />
+                                      )}
+                                    </Button>
+                                    <div className="w-8 h-8 rounded-full bg-black text-white text-sm flex items-center justify-center font-medium">
+                                      {milestone.order_index}
+                                    </div>
+                                    <div>
+                                      <div className="font-medium text-gray-900">{milestone.title}</div>
+                                      <div className="text-sm text-gray-600">{milestone.description}</div>
+                                      {milestone.completion_rate !== undefined && (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          Completion: {milestone.completion_rate}% 
+                                          ({milestone.completed_count || 0}/{milestone.total_enrolled || 0})
+                                        </div>
+                                      )}
+                                      {milestone.tasks && milestone.tasks.length > 0 && (
+                                        <div className="text-xs text-blue-600 mt-1">
+                                          {milestone.tasks.length} task{milestone.tasks.length !== 1 ? 's' : ''}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setEditingMilestone(milestone)}
+                                      className="h-8 text-blue-600 border-blue-200 hover:text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                                    >
+                                      <Edit className="h-3 w-3 mr-1" />
+                                      Edit
+                                    </Button>
+                                    <TaskCreationDialog
+                                      milestoneId={parseInt(milestone.id)}
+                                      milestoneTitle={milestone.title}
+                                      coachId={coachId}
+                                      programId={program.id}
+                                      onTaskCreated={(newTask) => handleTaskCreated(parseInt(milestone.id), newTask)}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleDeleteMilestone(milestone.id, program.id)}
+                                      className="h-8 text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
+                                    >
+                                      <Trash2 className="h-3 w-3 mr-1" />
+                                      Delete
+                                    </Button>
+                                  </div>
                                 </div>
-                                <div className="ml-16">
-                                  <MilestoneCard
-                                    milestone={{
-                                      id: parseInt(milestone.id),
-                                      title: milestone.title,
-                                      description: milestone.description,
-                                      status: milestone.status,
-                                      tasks: milestone.tasks.map(task => ({
-                                        ...task,
-                                        id: parseInt(task.id),
-                                        milestone_id: parseInt(task.milestone_id)
-                                      }))
-                                    }}
-                                    isExpanded={expandedMilestones.has(milestone.id)}
-                                    onToggle={() => toggleMilestoneExpansion(milestone.id)}
-                                    onDelete={(milestoneId) => handleDeleteMilestone(milestoneId.toString(), program.id)}
-                                    onEdit={(milestoneId, newTitle, newDescription) => {
-                                      // Handle edit here if needed
-                                      console.log('Edit milestone:', milestoneId, newTitle, newDescription)
-                                    }}
-                                    coachId={coachId}
-                                    programId={program.id}
-                                  />
-                                </div>
+                                
+                                {/* Tasks Section */}
+                                {expandedMilestones.has(milestone.id) && milestone.tasks && milestone.tasks.length > 0 && (
+                                  <div className="border-t border-gray-200 px-3 pb-3">
+                                    <div className="mt-2 space-y-1">
+                                      {milestone.tasks
+                                        .sort((a, b) => a.order_index - b.order_index)
+                                        .map((task) => (
+                                          <div key={task.id} className="flex items-center gap-2 p-2 bg-white rounded text-sm">
+                                            <div className="flex items-center justify-center w-5 h-5 bg-gray-100 text-gray-600 rounded text-xs">
+                                              {task.order_index}
+                                            </div>
+                                            <span className={`flex-1 ${task.completed ? 'line-through text-gray-500' : ''}`}>
+                                              {task.title}
+                                            </span>
+                                            <div className="flex items-center gap-1">
+                                              {task.completed ? (
+                                                <Badge variant="secondary" className="text-xs">Completed</Badge>
+                                              ) : (
+                                                <Badge variant="outline" className="text-xs">Pending</Badge>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-1 ml-2">
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleEditTask(milestone.id, task.id, task)}
+                                                className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700"
+                                                title="Edit task"
+                                              >
+                                                <Edit className="h-3 w-3" />
+                                              </Button>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => handleDeleteTask(milestone.id, task.id, task.title)}
+                                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                                                title="Delete task"
+                                              >
+                                                <Trash2 className="h-3 w-3" />
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             ))}
                         </div>
@@ -962,6 +1161,54 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
               ) : (
                 'Delete Program'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Task Dialog */}
+      <Dialog open={editTaskOpen} onOpenChange={setEditTaskOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+            <DialogDescription>Update task details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-task-title">Title</Label>
+              <Input
+                id="edit-task-title"
+                value={editTaskData.title}
+                onChange={(e) => setEditTaskData({ ...editTaskData, title: e.target.value })}
+                placeholder="Enter task title"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-task-description">Description</Label>
+              <Textarea
+                id="edit-task-description"
+                value={editTaskData.description}
+                onChange={(e) => setEditTaskData({ ...editTaskData, description: e.target.value })}
+                placeholder="Enter task description"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-task-requires-upload"
+                checked={editTaskData.requiresUpload}
+                onChange={(e) => setEditTaskData({ ...editTaskData, requiresUpload: e.target.checked })}
+                className="rounded"
+              />
+              <Label htmlFor="edit-task-requires-upload">Requires file upload</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTaskOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveTaskEdit}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>

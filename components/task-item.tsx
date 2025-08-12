@@ -19,9 +19,11 @@ interface TaskItemProps {
   coachId?: string
   programId?: string
   milestoneId?: number
+  allowEdit?: boolean
+  allTasks?: Task[]
 }
 
-export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milestoneId }: TaskItemProps) {
+export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milestoneId, allowEdit = true, allTasks = [] }: TaskItemProps) {
   const [file, setFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -30,6 +32,21 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
   const [editDescription, setEditDescription] = useState(task.description || '')
   const [editRequiresUpload, setEditRequiresUpload] = useState(task.requiresUpload || false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
+  const [taskStatus, setTaskStatus] = useState(task.status || (task.completed ? "completed" : "in-progress"))
+
+  // Check if all previous tasks are completed
+  const canCompleteTask = () => {
+    if (allTasks.length === 0) return true
+    
+    const currentTaskIndex = task.order_index || 0
+    const previousTasks = allTasks.filter(t => 
+      (t.order_index || 0) < currentTaskIndex && 
+      t.id !== task.id
+    )
+    
+    return previousTasks.every(t => t.completed || t.status === "completed")
+  }
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -41,6 +58,83 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
         return <Lock className="h-4 w-4 text-gray-400" />
       default:
         return null
+    }
+  }
+
+  const handleTaskCompletion = async (completed: boolean) => {
+    if (!coachId || !programId || !milestoneId) {
+      console.error('Missing required props for task completion')
+      return
+    }
+
+    // Check if task requires upload but no file is uploaded
+    if (task.requiresUpload && !file && completed) {
+      toast({
+        title: "Upload Required",
+        description: "Please upload the required document before marking this task as complete.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Check if previous tasks are completed
+    if (!canCompleteTask() && completed) {
+      toast({
+        title: "Complete Previous Tasks First",
+        description: "Please complete all previous tasks before marking this task as complete.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsCompleting(true)
+    try {
+      const response = await fetch(
+        `/api/coach/${coachId}/programs/${programId}/milestones/${milestoneId}/tasks?taskId=${task.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ completed })
+        }
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          // Update local state
+          const newStatus = completed ? "completed" : "in-progress"
+          setTaskStatus(newStatus)
+          
+          // Update the task in the parent component
+          const updatedTask = {
+            ...task,
+            completed: data.task.completed,
+            status: newStatus as "completed" | "in-progress" | "blocked"
+          }
+          onUpdate?.(task.id, updatedTask)
+          
+          toast({
+            title: completed ? "Task completed!" : "Task marked as incomplete",
+            description: `"${task.title}" has been ${completed ? 'marked as complete' : 'marked as incomplete'}.`,
+            variant: "default",
+          })
+        } else {
+          throw new Error(data.error || 'Failed to update task completion')
+        }
+      } else {
+        throw new Error('Failed to update task completion')
+      }
+    } catch (error) {
+      console.error('Error updating task completion:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update task completion. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCompleting(false)
     }
   }
 
@@ -189,7 +283,35 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
   return (
     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
       <div className="flex items-center gap-3 flex-1">
-        {getStatusIcon(task.status || "in-progress")}
+        {/* Task completion checkbox */}
+        <div className="relative">
+          <Checkbox
+            checked={taskStatus === "completed"}
+            onCheckedChange={(checked) => handleTaskCompletion(checked as boolean)}
+            disabled={isCompleting || 
+              (task.requiresUpload && !file && taskStatus !== "completed") || 
+              (!canCompleteTask() && taskStatus !== "completed")
+            }
+            className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            title={
+              task.requiresUpload && !file && taskStatus !== "completed" 
+                ? "Upload required document first" 
+                : !canCompleteTask() && taskStatus !== "completed"
+                ? "Complete previous tasks first"
+                : ""
+            }
+          />
+          {task.requiresUpload && !file && taskStatus !== "completed" && (
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" title="Document upload required"></div>
+          )}
+          {!canCompleteTask() && taskStatus !== "completed" && !task.requiresUpload && (
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" title="Complete previous tasks first"></div>
+          )}
+          {!canCompleteTask() && taskStatus !== "completed" && task.requiresUpload && !file && (
+            <div className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" title="Complete previous tasks first"></div>
+          )}
+        </div>
+        {getStatusIcon(taskStatus)}
         {isEditing ? (
           <div className="flex-1 space-y-2">
             <input
@@ -223,7 +345,7 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
         ) : (
           <div className="flex-1">
             <div className="flex items-center gap-2">
-              <span className={`text-sm ${task.status === "completed" ? "line-through text-gray-500" : ""}`}>
+              <span className={`text-sm ${taskStatus === "completed" ? "line-through text-gray-500" : ""}`}>
                 {task.title}
               </span>
             </div>
@@ -260,7 +382,7 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
           </>
         ) : (
           <>
-            {task.requiresUpload && task.status === "in-progress" && (
+            {task.requiresUpload && taskStatus === "in-progress" && (
               <div className="flex items-center gap-2">
                 <Input
                   type="file"
@@ -269,6 +391,11 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
                   id={`file-${task.id}`}
                   accept=".pdf,.doc,.docx,.txt"
                 />
+                {file && (
+                  <span className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded border border-gray-200 max-w-32 truncate" title={file.name}>
+                    {file.name}
+                  </span>
+                )}
                 <button
                   onClick={() => document.getElementById(`file-${task.id}`)?.click()}
                   disabled={isUploading}
@@ -281,7 +408,6 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
                     <Upload className="h-4 w-4" />
                   )}
                 </button>
-                {file && <span className="text-xs text-green-600">{file.name}</span>}
               </div>
             )}
 
@@ -291,10 +417,16 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
               </Badge>
             )}
 
-            {task.status === "completed" && <Badge className="bg-green-100 text-green-700">Done</Badge>}
+            {taskStatus === "completed" && <Badge className="bg-green-100 text-green-700">Done</Badge>}
+            
+            {taskStatus === "blocked" && (
+              <Badge variant="secondary" className="bg-gray-100 text-gray-600">
+                Blocked
+              </Badge>
+            )}
             
             {/* Edit button - show if we have the required props */}
-            {coachId && programId && milestoneId && (
+            {allowEdit && coachId && programId && milestoneId && (
               <button
                 onClick={handleEdit}
                 className="p-1.5 text-blue-600 hover:text-white hover:bg-blue-600 bg-blue-50 border border-blue-200 rounded-lg shadow-sm transition-all duration-200"
@@ -305,7 +437,7 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
             )}
             
             {/* Delete button - always show if we have the required props */}
-            {coachId && programId && milestoneId && onDelete && (
+            {allowEdit && coachId && programId && milestoneId && onDelete && (
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}

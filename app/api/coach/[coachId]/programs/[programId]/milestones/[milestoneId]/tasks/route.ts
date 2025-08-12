@@ -200,6 +200,79 @@ export async function PUT(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: { coachId: string; programId: string; milestoneId: string } }
+) {
+  try {
+    const { coachId, programId, milestoneId } = await params
+    const url = new URL(request.url)
+    const taskId = url.searchParams.get('taskId')
+    const { completed } = await request.json()
+    
+    if (!taskId) {
+      return NextResponse.json(
+        { success: false, error: 'Task ID is required' },
+        { status: 400 }
+      )
+    }
+
+    if (typeof completed !== 'boolean') {
+      return NextResponse.json(
+        { success: false, error: 'Completed status is required and must be a boolean' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the program belongs to the coach and task belongs to milestone
+    const verificationResult = await pool.query(`
+      SELECT t.id 
+      FROM tasks t
+      JOIN milestones m ON t.milestone_id = m.id
+      JOIN coaching_programs cp ON m.program_id = cp.id
+      WHERE t.id = $1 AND m.id = $2 AND cp.id = $3 AND cp.coach_id = $4
+    `, [taskId, milestoneId, programId, coachId])
+
+    if (verificationResult.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Task not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    // Update the task completion status
+    const result = await pool.query(`
+      UPDATE tasks 
+      SET completed = $1, completed_at = $2
+      WHERE id = $3 AND milestone_id = $4
+      RETURNING id, title, description, completed, order_index, requires_upload, created_at, completed_at
+    `, [completed, completed ? new Date().toISOString() : null, taskId, milestoneId])
+
+    const updatedTask = result.rows[0]
+
+    return NextResponse.json({
+      success: true,
+      task: {
+        id: updatedTask.id,
+        title: updatedTask.title,
+        description: updatedTask.description,
+        completed: updatedTask.completed,
+        order_index: parseInt(updatedTask.order_index),
+        milestone_id: parseInt(milestoneId),
+        requiresUpload: updatedTask.requires_upload,
+        created_at: updatedTask.created_at,
+        completed_at: updatedTask.completed_at
+      }
+    })
+  } catch (error) {
+    console.error('Error updating task completion:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to update task completion' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { coachId: string; programId: string; milestoneId: string } }
