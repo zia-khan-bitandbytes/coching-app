@@ -5,27 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { TaskItem } from "@/components/task-item"
 import { TaskCreationDialog } from "@/components/task-creation-dialog"
 import { CheckCircle, Clock, Lock, ChevronDown, ChevronUp, Trash2, Edit3, Check, X } from "lucide-react"
-
-interface Task {
-  id: number
-  title: string
-  description?: string
-  completed: boolean
-  order_index: number
-  milestone_id: number
-  created_at: string
-  completed_at?: string
-  status?: "completed" | "in-progress" | "blocked"
-  requiresUpload?: boolean
-}
-
-interface Milestone {
-  id: number
-  title: string
-  status: "completed" | "in-progress" | "blocked"
-  description: string
-  tasks: Task[]
-}
+import { Task, Milestone } from "@/lib/types"
 
 interface MilestoneCardProps {
   milestone: Milestone
@@ -65,7 +45,8 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
         // Convert database tasks to match the expected format
         const formattedTasks = data.tasks.map((task: any) => ({
           ...task,
-          status: task.completed ? "completed" : "in-progress"
+          status: task.completed ? "completed" : "in-progress",
+          requiresUpload: task.requiresUpload || false
         }))
         setTasks(formattedTasks)
       }
@@ -80,7 +61,8 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
     // Add the new task to the list with proper formatting
     const formattedTask = {
       ...newTask,
-      status: newTask.completed ? "completed" : "in-progress"
+      status: newTask.completed ? "completed" : "in-progress",
+      requiresUpload: newTask.requiresUpload || false
     }
     setTasks(prev => [...prev, formattedTask])
   }
@@ -88,6 +70,17 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
   const handleTaskDeleted = (taskId: number) => {
     // Remove the deleted task from the list
     setTasks(prev => prev.filter(task => task.id !== taskId))
+  }
+
+  const handleTaskUpdated = (taskId: number, updatedTask: any) => {
+    // Update the task in the list
+    setTasks(prev => prev.map(task => 
+      task.id === taskId ? { 
+        ...task, 
+        ...updatedTask,
+        requiresUpload: updatedTask.requiresUpload !== undefined ? updatedTask.requiresUpload : task.requiresUpload
+      } : task
+    ))
   }
 
   const getStatusIcon = (status: string) => {
@@ -183,17 +176,17 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
               <>
                 <button
                   onClick={handleSaveEdit}
-                  className="p-2.5 text-green-600 hover:text-white hover:bg-green-600 bg-green-50 border border-green-200 rounded-lg shadow-sm transition-all duration-200 group"
+                  className="p-2.5 text-green-600 hover:text-white hover:bg-green-600 bg-green-50 border border-green-200 rounded-lg shadow-sm transition-all duration-200"
                   title="Save changes"
                 >
-                  <Check className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
+                  <Check className="h-5 w-5" />
                 </button>
                 <button
                   onClick={handleCancelEdit}
-                  className="p-2.5 text-gray-600 hover:text-white hover:bg-gray-600 bg-gray-50 border border-gray-200 rounded-lg shadow-sm transition-all duration-200 group"
+                  className="p-2.5 text-gray-600 hover:text-white hover:bg-gray-600 bg-gray-50 border border-gray-200 rounded-lg shadow-sm transition-all duration-200"
                   title="Cancel editing"
                 >
-                  <X className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
+                  <X className="h-5 w-5" />
                 </button>
               </>
             ) : (
@@ -202,10 +195,10 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                 {onEdit && (
                   <button
                     onClick={handleEdit}
-                    className="p-2.5 text-blue-600 hover:text-white hover:bg-blue-600 bg-blue-50 border border-blue-200 rounded-lg shadow-sm transition-all duration-200 group"
+                    className="p-2.5 text-blue-600 hover:text-white hover:bg-blue-600 bg-blue-50 border border-blue-200 rounded-lg shadow-sm transition-all duration-200"
                     title="Edit milestone"
                   >
-                    <Edit3 className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
+                    <Edit3 className="h-5 w-5" />
                   </button>
                 )}
                 {coachId && programId && (
@@ -220,10 +213,10 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                 {onDelete && (
                   <button
                     onClick={handleDelete}
-                    className="p-2.5 text-red-600 hover:text-white hover:bg-red-600 bg-red-50 border border-red-200 rounded-lg shadow-sm transition-all duration-200 group"
+                    className="p-2.5 text-red-600 hover:text-white hover:bg-red-600 bg-red-50 border border-red-200 rounded-lg shadow-sm transition-all duration-200"
                     title="Delete milestone"
                   >
-                    <Trash2 className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
+                    <Trash2 className="h-5 w-5" />
                   </button>
                 )}
                 {(tasks.length > 0 || (coachId && programId)) && (
@@ -238,12 +231,12 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                         e.stopPropagation();
                         onToggle();
                       }}
-                      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all duration-200 group"
+                      className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-all duration-200"
                       title={isExpanded ? "Hide tasks" : "Show tasks"}
                     >
                       {isExpanded ? 
-                        <ChevronUp className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" /> : 
-                        <ChevronDown className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
+                        <ChevronUp className="h-5 w-5" /> : 
+                        <ChevronDown className="h-5 w-5" />
                       }
                     </button>
                   </div>
@@ -282,10 +275,12 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                       task={{
                         id: task.id,
                         title: task.title,
+                        description: task.description,
                         status: task.status || (task.completed ? "completed" : "in-progress"),
                         requiresUpload: task.requiresUpload
                       }}
                       onDelete={handleTaskDeleted}
+                      onUpdate={handleTaskUpdated}
                       coachId={coachId}
                       programId={programId}
                       milestoneId={milestone.id}

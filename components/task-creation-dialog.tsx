@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Plus, Loader2 } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 
@@ -35,6 +36,7 @@ export function TaskCreationDialog({
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
+  const [requiresUpload, setRequiresUpload] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -62,6 +64,7 @@ export function TaskCreationDialog({
           body: JSON.stringify({
             title: title.trim(),
             description: description.trim(),
+            requiresUpload: requiresUpload,
           }),
         }
       )
@@ -80,6 +83,7 @@ export function TaskCreationDialog({
         // Reset form and close dialog
         setTitle("")
         setDescription("")
+        setRequiresUpload(false)
         setOpen(false)
       } else {
         toast({
@@ -103,6 +107,7 @@ export function TaskCreationDialog({
   const handleCancel = () => {
     setTitle("")
     setDescription("")
+    setRequiresUpload(false)
     setOpen(false)
   }
 
@@ -110,10 +115,10 @@ export function TaskCreationDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <button
-          className="p-2.5 text-green-600 hover:text-white hover:bg-green-600 bg-green-50 border border-green-200 rounded-lg shadow-sm transition-all duration-200 group"
+          className="p-2.5 text-green-600 hover:text-white hover:bg-green-600 bg-green-50 border border-green-200 rounded-lg shadow-sm transition-all duration-200"
           title="Add task"
         >
-          <Plus className="h-5 w-5 group-hover:scale-110 transition-transform duration-200" />
+          <Plus className="h-5 w-5" />
         </button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
@@ -147,6 +152,20 @@ export function TaskCreationDialog({
                 rows={3}
                 disabled={isLoading}
               />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="requiresUpload"
+                checked={requiresUpload}
+                onCheckedChange={(checked) => setRequiresUpload(checked as boolean)}
+                disabled={isLoading}
+              />
+              <Label
+                htmlFor="requiresUpload"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Upload require
+              </Label>
             </div>
           </div>
           <DialogFooter>

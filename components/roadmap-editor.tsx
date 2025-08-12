@@ -18,6 +18,7 @@ import { toast } from "@/hooks/use-toast"
 import { ChevronDown, ChevronRight, Edit, GripVertical, Plus, Trash2, X } from "lucide-react"
 import { TaskCreationDialog } from "@/components/task-creation-dialog"
 import { MilestoneCard } from "@/components/milestone-card"
+import { Task, Milestone } from "@/lib/types"
 
 interface Program {
   id: number
@@ -28,33 +29,16 @@ interface Program {
   is_active: boolean
 }
 
-interface Task {
-  id: number
-  title: string
-  description: string
-  completed: boolean
-  order_index: number
-  milestone_id: number
-  created_at?: string
-  completed_at?: string
-}
-
-interface Milestone {
-  id: number
-  title: string
-  description: string
+interface MilestoneWithStats extends Milestone {
   order_index: number
   program_id: number
-  status: "completed" | "in-progress" | "blocked"
-  created_at?: string
   completed_count?: number
   total_enrolled?: number
   completion_rate?: number
-  tasks: Task[]
 }
 
 interface ProgramWithMilestones extends Program {
-  milestones: Milestone[]
+  milestones: MilestoneWithStats[]
   isAddingMilestone: boolean
   newMilestoneForm: {
     title: string
@@ -72,7 +56,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
   const [expandedMilestones, setExpandedMilestones] = useState<Set<number>>(new Set())
   const [isAddProgramOpen, setIsAddProgramOpen] = useState(false)
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
-  const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null)
+  const [editingMilestone, setEditingMilestone] = useState<MilestoneWithStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   // Form states

@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   description TEXT,
   completed BOOLEAN DEFAULT FALSE,
   order_index INTEGER NOT NULL,
+  requires_upload BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP
 );
