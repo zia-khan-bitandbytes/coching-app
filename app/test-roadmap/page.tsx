@@ -1,3 +1,5 @@
+'use client'
+
 import { TestRoadmap } from "@/components/test-roadmap"
 
 export default function TestRoadmapPage() {

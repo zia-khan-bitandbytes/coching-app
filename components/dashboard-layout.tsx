@@ -16,11 +16,7 @@ interface DashboardLayoutProps {
   children: React.ReactNode
 }
 
-const coachingOffers = [
-  { id: "business-growth", name: "Business Growth Program" },
-  { id: "leadership", name: "Leadership Mastery" },
-  { id: "sales-excellence", name: "Sales Excellence" },
-]
+
 
 function RoadmapDropdown() {
   const { roadmaps, selectedRoadmapId, selectRoadmap } = useRoadmap()
@@ -54,7 +50,6 @@ function RoadmapDropdown() {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [user, setUser] = useState<{ email: string; name: string; role: string; coach_id?: string; business_name?: string } | null>(null)
-  const [selectedOffer, setSelectedOffer] = useState("business-growth")
   const router = useRouter()
 
   useEffect(() => {
@@ -107,24 +102,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <h1 className="text-2xl font-bold text-gray-900">{user.business_name || 'Coach Dashboard'}</h1>
                 <span className="ml-4 text-sm text-gray-600">Coach: {user.name}</span>
               </div>
+            ) : isCustomer ? (
+              <div className="flex items-center">
+                <h1 className="text-2xl font-bold text-gray-900">COACHING XYZ</h1>
+              </div>
             ) : (
               <RoadmapDropdown />
             )}
 
-            {isCustomer && (
-              <Select value={selectedOffer} onValueChange={setSelectedOffer}>
-                <SelectTrigger className="w-64">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {coachingOffers.map((offer) => (
-                    <SelectItem key={offer.id} value={offer.id}>
-                      {offer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
+
           </div>
 
           <div className="flex items-center gap-4">

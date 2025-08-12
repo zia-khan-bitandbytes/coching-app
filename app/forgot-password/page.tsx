@@ -1,3 +1,5 @@
+'use client'
+
 import { ForgotPasswordForm } from "@/components/forgot-password-form"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { Map, BookOpen, HelpCircle, Users, X } from "lucide-react"
+import { Map, BookOpen, HelpCircle, Users, X, LayoutDashboard } from "lucide-react"
 import { showSuccessToast, showErrorToast } from "@/lib/toast"
 import { RoadmapView } from "./roadmap-view"
 
@@ -19,12 +19,24 @@ interface Message {
   reactions?: { [emoji: string]: number }
 }
 
-const navigationItems = [
-  { id: "roadmap", label: "Roadmap", icon: Map, active: true },
-  { id: "resources", label: "Resources", icon: BookOpen, active: false },
-  { id: "support", label: "Support", icon: HelpCircle, active: false },
-  { id: "community", label: "A Community", icon: Users, active: false },
-]
+const getNavigationItems = (userRole?: string) => {
+  if (userRole === 'customer') {
+    return [
+      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, active: true },
+      { id: "roadmap", label: "Roadmap", icon: Map, active: false },
+      { id: "resources", label: "Resources", icon: BookOpen, active: false },
+      { id: "support", label: "Support", icon: HelpCircle, active: false },
+      { id: "community", label: "A Community", icon: Users, active: false },
+    ]
+  }
+  
+  return [
+    { id: "roadmap", label: "Roadmap", icon: Map, active: true },
+    { id: "resources", label: "Resources", icon: BookOpen, active: false },
+    { id: "support", label: "Support", icon: HelpCircle, active: false },
+    { id: "community", label: "A Community", icon: Users, active: false },
+  ]
+}
 
 export function Sidebar() {
   const [activeItem, setActiveItem] = useState("roadmap")
@@ -41,7 +53,14 @@ export function Sidebar() {
     // Get user from localStorage
     const userData = localStorage.getItem("user")
     if (userData) {
-      setUser(JSON.parse(userData))
+      const user = JSON.parse(userData)
+      setUser(user)
+      // Set default active item based on user role
+      if (user.role === 'customer') {
+        setActiveItem("dashboard")
+      } else {
+        setActiveItem("roadmap")
+      }
     }
   }, [])
 
@@ -159,6 +178,12 @@ export function Sidebar() {
     setIsRoadmapOpen(false)
   }
 
+  const handleDashboardClick = () => {
+    // For customers, clicking dashboard should show the main dashboard content
+    // This is already handled by the main dashboard layout
+    setActiveItem("dashboard")
+  }
+
   // Check if user is customer
   const isCustomer = user?.role === 'customer'
 
@@ -166,7 +191,7 @@ export function Sidebar() {
     <>
       <aside className="w-64 bg-white border-r border-gray-200 p-6">
         <nav className="space-y-2">
-          {navigationItems.map((item) => {
+          {getNavigationItems(user?.role).map((item) => {
             const Icon = item.icon
             
             // Only show Roadmap and Community for customers
@@ -187,6 +212,8 @@ export function Sidebar() {
                     handleCommunityClick()
                   } else if (item.id === "roadmap") {
                     handleRoadmapClick()
+                  } else if (item.id === "dashboard") {
+                    handleDashboardClick()
                   } else {
                     setActiveItem(item.id)
                   }

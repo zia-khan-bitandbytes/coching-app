@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Users, BookOpen, Target, Calendar, CheckCircle, Clock, Award } from "lucide-react"
+import { Users, BookOpen, Target, Calendar, CheckCircle, Clock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -53,7 +53,6 @@ interface CustomerStats {
   totalPrograms: number
   completedMilestones: number
   totalMilestones: number
-  totalSpent: number
   completionRate: number
 }
 
@@ -66,7 +65,6 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
     totalPrograms: 0,
     completedMilestones: 0,
     totalMilestones: 0,
-    totalSpent: 0,
     completionRate: 0
   })
   const [loading, setLoading] = useState(true)
@@ -130,7 +128,6 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
             totalPrograms: 0,
             completedMilestones: 0,
             totalMilestones: 0,
-            totalSpent: 0,
             completionRate: 0
           })
         }
@@ -141,7 +138,6 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
           totalPrograms: 0,
           completedMilestones: 0,
           totalMilestones: 0,
-          totalSpent: 0,
           completionRate: 0
         })
       }
@@ -254,13 +250,6 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
       icon: Target,
       color: "text-purple-600",
     },
-    {
-      title: "Total Investment",
-      value: "$" + (stats.totalSpent || 0).toLocaleString(),
-      change: "In your growth",
-      icon: Award,
-      color: "text-emerald-600",
-    },
   ]
 
   if (loading) {
@@ -311,14 +300,13 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
                 <p className="text-gray-600">{coach.name} - {coach.specialization}</p>
                 <p className="text-sm text-gray-500 mt-1">{coach.bio}</p>
               </div>
-              <Button variant="outline">Contact Coach</Button>
             </div>
           </CardContent>
         </Card>
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {statsCards.map((stat) => {
           const Icon = stat.icon
           return (
