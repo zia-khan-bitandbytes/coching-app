@@ -6,7 +6,7 @@ export async function POST(
   { params }: { params: { customerId: string; milestoneId: string } }
 ) {
   try {
-    const { customerId, milestoneId } = params
+    const { customerId, milestoneId } = await params
     const { completed, notes } = await request.json()
 
     // Verify the customer exists
@@ -80,7 +80,7 @@ export async function GET(
   { params }: { params: { customerId: string; milestoneId: string } }
 ) {
   try {
-    const { customerId, milestoneId } = params
+    const { customerId, milestoneId } = await params
 
     // Get milestone progress for the customer
     const progressResult = await pool.query(`

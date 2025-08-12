@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Users, BookOpen, Target, Calendar, CheckCircle, Clock } from "lucide-react"
+import { Users, BookOpen, Target, Calendar, CheckCircle, Clock, Award, ChevronDown, ChevronUp } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { MilestoneCard } from "@/components/milestone-card"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +48,8 @@ interface Milestone {
   completed: boolean
   completed_at?: string
   program_name: string
+  status?: "completed" | "in-progress" | "blocked"
+  tasks?: any[]
 }
 
 interface CustomerStats {
@@ -71,6 +74,7 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [updatingMilestones, setUpdatingMilestones] = useState<Set<string>>(new Set())
   const [confirmMilestone, setConfirmMilestone] = useState<Milestone | null>(null)
+  const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     fetchCustomerData()
@@ -111,7 +115,13 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
       if (milestonesResponse.ok) {
         const milestonesData = await milestonesResponse.json()
         if (milestonesData.milestones) {
-          setMilestones(milestonesData.milestones)
+          // Transform milestones to match the expected format
+          const transformedMilestones = milestonesData.milestones.map((milestone: any) => ({
+            ...milestone,
+            status: milestone.completed ? "completed" : "in-progress",
+            tasks: milestone.tasks || []
+          }))
+          setMilestones(transformedMilestones)
         } else {
           setMilestones([])
         }
@@ -148,6 +158,18 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
     }
   }
 
+  const handleToggleMilestone = (milestoneId: string) => {
+    setExpandedMilestones(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(milestoneId)) {
+        newSet.delete(milestoneId)
+      } else {
+        newSet.add(milestoneId)
+      }
+      return newSet
+    })
+  }
+
   const handleMarkComplete = (milestone: Milestone) => {
     setConfirmMilestone(milestone)
   }
@@ -181,7 +203,7 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
           // Update the milestone in local state
           setMilestones(prev => prev.map(m => 
             m.id === milestoneId 
-              ? { ...m, completed: true, completed_at: new Date().toISOString() }
+              ? { ...m, completed: true, completed_at: new Date().toISOString(), status: "completed" }
               : m
           ))
           
@@ -474,92 +496,78 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
           <Card>
             <CardHeader>
               <CardTitle>Milestone Progress</CardTitle>
-              <CardDescription>Track your progress through each program</CardDescription>
+              <CardDescription>Track your progress through each program with detailed task management</CardDescription>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Milestone</TableHead>
-                    <TableHead>Program</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Completed</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {milestones.length > 0 ? (
-                    milestones.map((milestone) => (
-                      <TableRow key={milestone.id}>
-                        <TableCell className="font-medium">{milestone.title}</TableCell>
-                        <TableCell>{milestone.program_name}</TableCell>
-                        <TableCell>
-                          <Badge variant={milestone.completed ? 'default' : 'secondary'}>
-                            {milestone.completed ? 'Completed' : 'In Progress'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          {milestone.completed && milestone.completed_at ? (
-                            <span className="text-green-600">
-                              {new Date(milestone.completed_at).toLocaleDateString()}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {milestone.completed ? (
-                            <Button variant="outline" size="sm" disabled>
-                              Completed
-                            </Button>
-                          ) : (
-                            <Button 
-                              variant="default" 
-                              size="sm"
-                              onClick={() => handleMarkComplete(milestone)}
-                              disabled={updatingMilestones.has(milestone.id)}
-                            >
-                              {updatingMilestones.has(milestone.id) ? 'Updating...' : 'Mark Complete'}
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-gray-500 py-8">
-                        No milestones found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+              {milestones.length > 0 ? (
+                <div className="space-y-4">
+                  {milestones.map((milestone) => (
+                    <MilestoneCard
+                      key={milestone.id}
+                      milestone={{
+                        id: parseInt(milestone.id),
+                        title: milestone.title,
+                        description: milestone.description,
+                        status: milestone.status || (milestone.completed ? "completed" : "in-progress"),
+                        tasks: milestone.tasks || []
+                      }}
+                      isExpanded={expandedMilestones.has(milestone.id)}
+                      onToggle={() => handleToggleMilestone(milestone.id)}
+                      coachId={coach?.id}
+                      programId={programs.find(p => p.name === milestone.program_name)?.id}
+                      allowTaskCreation={false}
+                      customerId={customerId}
+                      allMilestones={milestones}
+                      onMilestoneCompleted={(milestoneId: number) => {
+                        console.log('=== Milestone Completed Callback ===')
+                        console.log('Milestone ID completed:', milestoneId)
+                        
+                        // Update the milestones state to mark this milestone as completed
+                        setMilestones(prevMilestones => {
+                          console.log('Previous milestones:', prevMilestones)
+                          const updatedMilestones = prevMilestones.map(m => 
+                            m.id === milestoneId.toString() 
+                              ? { ...m, completed: true, status: "completed" as const }
+                              : m
+                          )
+                          console.log('Updated milestones:', updatedMilestones)
+                          return updatedMilestones
+                        })
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500 py-8">
+                  No milestones found
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-             {confirmMilestone && (
-         <AlertDialog open={!!confirmMilestone} onOpenChange={(open) => !open && setConfirmMilestone(null)}>
-           <AlertDialogContent>
-             <AlertDialogHeader>
-               <AlertDialogTitle>Confirm Mark Complete</AlertDialogTitle>
-               <AlertDialogDescription>
-                 Are you sure you want to mark "{confirmMilestone.title}" from "{confirmMilestone.program_name}" as complete? This action cannot be undone.
-               </AlertDialogDescription>
-             </AlertDialogHeader>
-             <AlertDialogFooter>
-               <AlertDialogCancel>Cancel</AlertDialogCancel>
-               <AlertDialogAction 
-                 onClick={confirmMarkComplete}
-                 disabled={updatingMilestones.has(confirmMilestone.id)}
-               >
-                 {updatingMilestones.has(confirmMilestone.id) ? 'Updating...' : 'Mark Complete'}
-               </AlertDialogAction>
-             </AlertDialogFooter>
-           </AlertDialogContent>
-         </AlertDialog>
-       )}
+      {confirmMilestone && (
+        <AlertDialog open={!!confirmMilestone} onOpenChange={(open) => !open && setConfirmMilestone(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Mark Complete</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to mark "{confirmMilestone.title}" from "{confirmMilestone.program_name}" as complete? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={confirmMarkComplete}
+                disabled={updatingMilestones.has(confirmMilestone.id)}
+              >
+                {updatingMilestones.has(confirmMilestone.id) ? 'Updating...' : 'Mark Complete'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   )
 } 

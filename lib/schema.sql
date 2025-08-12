@@ -50,6 +50,19 @@ CREATE TABLE IF NOT EXISTS milestones (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create tasks table for milestone tasks
+CREATE TABLE IF NOT EXISTS tasks (
+  id SERIAL PRIMARY KEY,
+  milestone_id INTEGER REFERENCES milestones(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  completed BOOLEAN DEFAULT FALSE,
+  order_index INTEGER NOT NULL,
+  requires_upload BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  completed_at TIMESTAMP
+);
+
 -- Create user_programs table (for customer enrollments in coach programs)
 CREATE TABLE IF NOT EXISTS user_programs (
   id SERIAL PRIMARY KEY,
@@ -133,6 +146,7 @@ CREATE INDEX IF NOT EXISTS idx_coaching_programs_coach_id ON coaching_programs(c
 CREATE INDEX IF NOT EXISTS idx_user_programs_user_id ON user_programs(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_programs_program_id ON user_programs(program_id);
 CREATE INDEX IF NOT EXISTS idx_milestones_program_id ON milestones(program_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_milestone_id ON tasks(milestone_id);
 CREATE INDEX IF NOT EXISTS idx_milestone_progress_user_id ON milestone_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_milestone_progress_milestone_id ON milestone_progress(milestone_id);
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
