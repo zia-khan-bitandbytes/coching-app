@@ -120,27 +120,42 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
       ((m as any).order_index || 0) === currentMilestoneOrder - 1
     )
     
-    // Check if previous milestone is completed (either by completed property or status)
-    const isPreviousCompleted = previousMilestone ? 
-      (previousMilestone.completed === true || previousMilestone.status === "completed") : false
+    // If no previous milestone found, milestone should be locked
+    if (!previousMilestone) return false
     
-    // Debug logging for milestone 3
-    if (currentMilestoneOrder === 3) {
-      console.log('=== Milestone 3 Debug ===')
-      console.log('Current milestone order:', currentMilestoneOrder)
-      console.log('All milestones:', allMilestones)
-      console.log('Previous milestone (order 2):', previousMilestone)
-      console.log('Previous milestone completed:', isPreviousCompleted)
-      console.log('Previous milestone.completed:', previousMilestone?.completed)
-      console.log('Previous milestone.status:', previousMilestone?.status)
-    }
+    // Check if previous milestone is completed (either by completed property or status)
+    const isPreviousCompleted = previousMilestone.completed === true || previousMilestone.status === "completed"
     
     return isPreviousCompleted
   }
 
   // Check if milestone is locked
   const isMilestoneLocked = () => {
-    return !isMilestoneUnlocked() && milestone.status !== "completed"
+    // If milestone is already completed, it's not locked
+    if (milestone.status === "completed") return false
+    
+    // If the API provided an isLocked property, use that
+    if ((milestone as any).isLocked !== undefined) {
+      return (milestone as any).isLocked
+    }
+    
+    // Otherwise, calculate based on previous milestone completion
+    return !isMilestoneUnlocked()
+  }
+
+  // Get information about which milestone needs to be completed first
+  const getNextUnlockableMilestone = () => {
+    if (!isMilestoneLocked()) return null
+    
+    const currentMilestoneOrder = (milestone as any).order_index || 0
+    if (currentMilestoneOrder <= 1) return null
+    
+    // Find the previous milestone that needs to be completed
+    const previousMilestone = allMilestones.find(m => 
+      ((m as any).order_index || 0) === currentMilestoneOrder - 1
+    )
+    
+    return previousMilestone
   }
 
   const getStatusIcon = (status: string) => {
@@ -149,7 +164,7 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
         return <CheckCircle className="h-5 w-5 text-green-600" />
       case "in-progress":
         return <Clock className="h-5 w-5 text-blue-600" />
-      case "blocked":
+      case "locked":
         return <Lock className="h-5 w-5 text-gray-400" />
       default:
         return null
@@ -162,10 +177,10 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
         return <Badge className="bg-green-100 text-green-700">Done</Badge>
       case "in-progress":
         return <Badge className="bg-blue-100 text-blue-700">In Progress</Badge>
-      case "blocked":
+      case "locked":
         return (
           <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-            Blocked
+            Locked
           </Badge>
         )
       default:
@@ -247,7 +262,7 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
   }
 
   return (
-    <Card className={`${milestone.status === "in-progress" ? "border-blue-200" : ""} ${isMilestoneLocked() ? "opacity-60" : ""}`}>
+    <Card className={`${milestone.status === "in-progress" ? "border-blue-200" : ""} ${isMilestoneLocked() ? "opacity-60 bg-gray-50" : ""}`}>
       <CardHeader className="">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 flex-1">
@@ -280,7 +295,7 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                 <CardTitle className="text-lg">{milestone.title}</CardTitle>
                 {isMilestoneLocked() && (
                   <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                    Locked
+                    Locked - Complete previous milestone first
                   </span>
                 )}
               </div>
@@ -350,10 +365,13 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                       }}
                       className={`p-2 rounded-md transition-all duration-200 ${
                         isMilestoneLocked() 
-                          ? 'text-gray-400 cursor-not-allowed' 
+                          ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
                           : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
                       }`}
-                      title={isMilestoneLocked() ? "Complete previous milestones first" : (isExpanded ? "Hide tasks" : "Show tasks")}
+                      title={isMilestoneLocked() ? 
+                        `Complete "${getNextUnlockableMilestone()?.title}" first to unlock this milestone` : 
+                        (isExpanded ? "Hide tasks" : "Show tasks")
+                      }
                       disabled={isMilestoneLocked()}
                     >
                       {isExpanded ? 
@@ -368,6 +386,15 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
           </div>
         </div>
         {!isEditing && milestone.description && <p className="text-sm text-gray-600 mt-1">{milestone.description}</p>}
+        
+        {/* Show helpful message for locked milestones */}
+        {isMilestoneLocked() && getNextUnlockableMilestone() && (
+          <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-xs text-blue-700">
+              <span className="font-medium">To unlock this milestone:</span> Complete "{getNextUnlockableMilestone()?.title}" first.
+            </p>
+          </div>
+        )}
       </CardHeader>
 
       {isExpanded && (

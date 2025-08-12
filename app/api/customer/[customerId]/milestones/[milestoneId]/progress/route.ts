@@ -23,7 +23,7 @@ export async function POST(
 
     // Verify the milestone exists and customer is enrolled in the program
     const milestoneCheck = await pool.query(`
-      SELECT m.id, m.title, cp.name as program_name
+      SELECT m.id, m.title, m.order_index, cp.name as program_name, cp.id as program_id
       FROM milestones m
       JOIN coaching_programs cp ON m.program_id = cp.id
       JOIN user_programs up ON cp.id = up.program_id
@@ -35,6 +35,39 @@ export async function POST(
         { success: false, error: 'Milestone not found or customer not enrolled in program' },
         { status: 404 }
       )
+    }
+
+    const milestone = milestoneCheck.rows[0]
+
+    // If trying to complete a milestone, validate the sequence
+    if (completed) {
+      // Check if all previous milestones are completed
+      if (milestone.order_index > 1) {
+        const previousMilestonesCheck = await pool.query(`
+          SELECT m.id, m.order_index, mp.completed
+          FROM milestones m
+          LEFT JOIN milestone_progress mp ON m.id = mp.milestone_id AND mp.user_id = $1
+          WHERE m.program_id = $2 
+            AND m.order_index < $3
+            AND (mp.completed IS NULL OR mp.completed = false)
+          ORDER BY m.order_index
+        `, [customerId, milestone.program_id, milestone.order_index])
+
+        if (previousMilestonesCheck.rows.length > 0) {
+          const incompleteMilestones = previousMilestonesCheck.rows
+            .map(m => ({ id: m.id, order_index: m.order_index }))
+            .sort((a, b) => a.order_index - b.order_index)
+
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: `Cannot complete milestone "${milestone.title}". You must complete the previous milestone(s) first.`,
+              incompleteMilestones: incompleteMilestones
+            },
+            { status: 400 }
+          )
+        }
+      }
     }
 
     // Update or create milestone progress
@@ -62,8 +95,8 @@ export async function POST(
         notes: progress.notes
       },
       milestone: {
-        title: milestoneCheck.rows[0].title,
-        program_name: milestoneCheck.rows[0].program_name
+        title: milestone.title,
+        program_name: milestone.program_name
       }
     })
   } catch (error) {

@@ -40,7 +40,7 @@ export function RoadmapProgress({ milestones, currentMilestone }: RoadmapProgres
                   "w-8 h-8 rounded-full border-2 flex items-center justify-center relative z-10 bg-white",
                   milestone.status === "completed" && "border-blue-500 bg-blue-500",
                   milestone.status === "in-progress" && "border-blue-500 bg-white",
-                  milestone.status === "blocked" && "border-gray-300 bg-white",
+                  milestone.status === "locked" && "border-gray-300 bg-white",
                 )}
               >
                 {milestone.status === "completed" && <div className="w-2 h-2 bg-white rounded-full" />}

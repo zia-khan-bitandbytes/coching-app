@@ -9,15 +9,17 @@ export interface Task {
   milestone_id?: number
   created_at?: string
   completed_at?: string
-  status?: "completed" | "in-progress" | "blocked"
+  status?: "completed" | "in-progress" | "locked"
   requiresUpload?: boolean
 }
 
 export interface Milestone {
   id: number
   title: string
-  status: "completed" | "in-progress" | "blocked"
+  status: "completed" | "in-progress" | "locked"
   description: string
+  order_index?: number
+  isLocked?: boolean
   tasks: Task[]
 }
 

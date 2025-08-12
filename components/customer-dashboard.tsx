@@ -48,7 +48,8 @@ interface Milestone {
   completed: boolean
   completed_at?: string
   program_name: string
-  status?: "completed" | "in-progress" | "blocked"
+  status?: "completed" | "in-progress" | "locked"
+  isLocked?: boolean
   tasks?: any[]
 }
 
@@ -118,7 +119,8 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
           // Transform milestones to match the expected format
           const transformedMilestones = milestonesData.milestones.map((milestone: any) => ({
             ...milestone,
-            status: milestone.completed ? "completed" : "in-progress",
+            status: milestone.status || (milestone.completed ? "completed" : "in-progress"),
+            isLocked: milestone.isLocked !== undefined ? milestone.isLocked : false,
             tasks: milestone.tasks || []
           }))
           setMilestones(transformedMilestones)
@@ -226,12 +228,25 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
       } else {
         const errorData = await response.json().catch(() => ({}))
         console.error('Failed to mark milestone complete:', response.status, errorData)
-        setError('Failed to mark milestone complete')
-        toast({
-          title: 'Marking milestone failed',
-          description: errorData.error || `Failed to mark milestone complete: ${response.status}`,
-          variant: 'destructive',
-        })
+        
+        // Handle specific milestone progression errors
+        if (response.status === 400 && errorData.incompleteMilestones) {
+          const incompleteMilestones = errorData.incompleteMilestones
+          const milestoneNames = incompleteMilestones.map((m: any) => `Milestone ${m.order_index}`).join(', ')
+          
+          toast({
+            title: 'Cannot Complete Milestone Yet',
+            description: `You must complete ${milestoneNames} first before proceeding.`,
+            variant: 'destructive',
+          })
+        } else {
+          setError('Failed to mark milestone complete')
+          toast({
+            title: 'Marking milestone failed',
+            description: errorData.error || `Failed to mark milestone complete: ${response.status}`,
+            variant: 'destructive',
+          })
+        }
       }
     } catch (error) {
       console.error('Error marking milestone complete:', error)
@@ -509,6 +524,8 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
                         title: milestone.title,
                         description: milestone.description,
                         status: milestone.status || (milestone.completed ? "completed" : "in-progress"),
+                        order_index: milestone.order_index,
+                        isLocked: milestone.isLocked,
                         tasks: milestone.tasks || []
                       }}
                       isExpanded={expandedMilestones.has(milestone.id)}
@@ -533,6 +550,9 @@ export function CustomerDashboard({ customerId }: { customerId: string }) {
                           console.log('Updated milestones:', updatedMilestones)
                           return updatedMilestones
                         })
+                        
+                        // Refresh stats to update completion rate
+                        fetchCustomerData()
                       }}
                     />
                   ))}

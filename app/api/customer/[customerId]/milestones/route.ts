@@ -27,16 +27,36 @@ export async function GET(
       ORDER BY m.order_index
     `, [customerId])
 
-    const milestones = milestonesResult.rows.map(row => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      order_index: row.order_index,
-      completed: row.completed || false,
-      completed_at: row.completed_at,
-      notes: row.notes,
-      program_name: row.program_name
-    }))
+    const milestones = milestonesResult.rows.map(row => {
+      // Calculate status based on completion and order
+      let status = "in-progress"
+      let isLocked = false
+      
+      if (row.completed) {
+        status = "completed"
+        isLocked = false
+      } else if (row.order_index > 1) {
+        // Check if previous milestone is completed
+        const previousMilestone = milestonesResult.rows.find(m => m.order_index === row.order_index - 1)
+        if (!previousMilestone || !previousMilestone.completed) {
+          status = "locked"
+          isLocked = true
+        }
+      }
+      
+      return {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        order_index: row.order_index,
+        completed: row.completed || false,
+        completed_at: row.completed_at,
+        notes: row.notes,
+        program_name: row.program_name,
+        status: status,
+        isLocked: isLocked
+      }
+    })
 
     return NextResponse.json({
       success: true,
