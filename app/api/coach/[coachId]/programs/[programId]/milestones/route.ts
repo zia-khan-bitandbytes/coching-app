@@ -166,16 +166,55 @@ export async function DELETE(
       )
     }
 
-    // Delete the milestone
-    await pool.query(`
-      DELETE FROM milestones 
-      WHERE id = $1 AND program_id = $2
-    `, [milestoneId, programId])
+    // Start a transaction to ensure data consistency
+    const client = await pool.connect()
+    
+    try {
+      await client.query('BEGIN')
 
-    return NextResponse.json({
-      success: true,
-      message: 'Milestone deleted successfully'
-    })
+      // Delete the milestone
+      await client.query(`
+        DELETE FROM milestones 
+        WHERE id = $1 AND program_id = $2
+      `, [milestoneId, programId])
+
+      // Get all remaining milestones for this program, ordered by current order_index
+      const remainingMilestonesResult = await client.query(`
+        SELECT id, order_index 
+        FROM milestones 
+        WHERE program_id = $1 
+        ORDER BY order_index
+      `, [programId])
+
+      // Reorder the remaining milestones sequentially starting from 1
+      if (remainingMilestonesResult.rows.length > 0) {
+        for (let i = 0; i < remainingMilestonesResult.rows.length; i++) {
+          const milestone = remainingMilestonesResult.rows[i]
+          const newOrderIndex = i + 1
+          
+          // Only update if the order_index has changed
+          if (milestone.order_index !== newOrderIndex) {
+            await client.query(`
+              UPDATE milestones 
+              SET order_index = $1 
+              WHERE id = $2
+            `, [newOrderIndex, milestone.id])
+          }
+        }
+      }
+
+      await client.query('COMMIT')
+
+      return NextResponse.json({
+        success: true,
+        message: 'Milestone deleted successfully and order corrected'
+      })
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   } catch (error) {
     console.error('Error deleting milestone:', error)
     return NextResponse.json(

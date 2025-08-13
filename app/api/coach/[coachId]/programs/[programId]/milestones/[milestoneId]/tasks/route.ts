@@ -305,16 +305,55 @@ export async function DELETE(
       )
     }
 
-    // Delete the task
-    await pool.query(`
-      DELETE FROM tasks 
-      WHERE id = $1 AND milestone_id = $2
-    `, [taskId, milestoneId])
+    // Start a transaction to ensure data consistency
+    const client = await pool.connect()
+    
+    try {
+      await client.query('BEGIN')
 
-    return NextResponse.json({
-      success: true,
-      message: 'Task deleted successfully'
-    })
+      // Delete the task
+      await client.query(`
+        DELETE FROM tasks 
+        WHERE id = $1 AND milestone_id = $2
+      `, [taskId, milestoneId])
+
+      // Get all remaining tasks for this milestone, ordered by current order_index
+      const remainingTasksResult = await client.query(`
+        SELECT id, order_index 
+        FROM tasks 
+        WHERE milestone_id = $1 
+        ORDER BY order_index
+      `, [milestoneId])
+
+      // Reorder the remaining tasks sequentially starting from 1
+      if (remainingTasksResult.rows.length > 0) {
+        for (let i = 0; i < remainingTasksResult.rows.length; i++) {
+          const task = remainingTasksResult.rows[i]
+          const newOrderIndex = i + 1
+          
+          // Only update if the order_index has changed
+          if (task.order_index !== newOrderIndex) {
+            await client.query(`
+              UPDATE tasks 
+              SET order_index = $1 
+              WHERE id = $2
+            `, [newOrderIndex, task.id])
+          }
+        }
+      }
+
+      await client.query('COMMIT')
+
+      return NextResponse.json({
+        success: true,
+        message: 'Task deleted successfully and order corrected'
+      })
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   } catch (error) {
     console.error('Error deleting task:', error)
     return NextResponse.json(
