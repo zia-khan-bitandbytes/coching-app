@@ -1096,7 +1096,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                       {customer.enrolled_programs && customer.enrolled_programs.length > 0 ? (
                         <div className="space-y-2">
                           {customer.enrolled_programs.map((program) => (
-                            <div key={program.id} className="bg-gray-50 rounded-lg p-3 border-l-4 border-l-blue-500">
+                            <div key={program.id} className="bg-gray-50 rounded-lg p-3 border-l-4 border-l-black-500">
                               <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2 mb-1">

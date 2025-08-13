@@ -128,11 +128,6 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {isCoach ? (
-                    <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
-                  ) : (
-                    <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
-                  )}
                   {isCustomer && (
                     <DropdownMenuItem asChild>
                       <a href="/customer/settings">Edit Profile</a>
