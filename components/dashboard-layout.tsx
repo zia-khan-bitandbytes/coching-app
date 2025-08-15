@@ -20,35 +20,7 @@ interface DashboardLayoutProps {
 
 
 
-function RoadmapDropdown() {
-  const { roadmaps, selectedRoadmapId, selectRoadmap } = useRoadmap()
-  
-  return (
-    <div className="flex items-center">
-      <h1 className="text-2xl font-bold text-gray-900">COACHING XYZ</h1>
-      <div className="ml-20">
-        <Select value={selectedRoadmapId || ""} onValueChange={selectRoadmap}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder={roadmaps.length > 0 ? "Select roadmap" : "No roadmaps"} />
-          </SelectTrigger>
-          <SelectContent>
-            {roadmaps.length > 0 ? (
-              roadmaps.map((roadmap) => (
-                <SelectItem key={roadmap.id} value={roadmap.id}>
-                  {roadmap.name}
-                </SelectItem>
-              ))
-            ) : (
-              <SelectItem value="empty" disabled>
-                No roadmaps
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
-      </div>
-    </div>
-  )
-}
+
 
 export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLayoutProps) {
   const [user, setUser] = useState<{ email: string; name: string; role: string; coach_id?: string; business_name?: string } | null>(null)
