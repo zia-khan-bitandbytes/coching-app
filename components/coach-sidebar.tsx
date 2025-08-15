@@ -2,13 +2,15 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Users, Map } from "lucide-react"
+import { LayoutDashboard, Users, Map, CreditCard, Settings } from "lucide-react"
 import { useDashboard } from "@/contexts/dashboard-context"
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'members', label: 'Members', icon: Users },
   { id: 'roadmap-editor', label: 'Roadmap Editor', icon: Map },
+  { id: 'payments', label: 'Payments', icon: CreditCard },
+  { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
 export function CoachSidebar() {
