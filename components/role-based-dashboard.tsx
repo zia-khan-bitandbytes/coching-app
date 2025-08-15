@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRoadmap } from "@/contexts/roadmap-context"
+import { useDashboard } from "@/contexts/dashboard-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,6 +13,8 @@ import Link from "next/link"
 import { CustomerDashboard } from "@/components/customer-dashboard"
 import { CoachDashboard } from "@/components/coach-dashboard"
 import { AdminDashboard } from "@/components/admin-dashboard"
+import { MemberManagement } from "@/components/member-management"
+import { RoadmapEditor } from "@/components/roadmap-editor"
 
 interface RoleBasedDashboardProps {
   user: {
@@ -25,9 +28,12 @@ interface RoleBasedDashboardProps {
 }
 
 export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
+  const { activeSection } = useDashboard()
+  
   // Debug logging
   console.log('RoleBasedDashboard rendered with user:', user)
   console.log('User role:', user.role)
+  console.log('Active section:', activeSection)
   
   const renderCustomerDashboard = () => (
     <CustomerDashboard customerId={user.id} />
@@ -45,7 +51,17 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
       )
     }
     
-    return <CoachDashboard coachId={user.coach_id} />
+    // Render different sections based on activeSection
+    switch (activeSection) {
+      case 'dashboard':
+        return <CoachDashboard coachId={user.coach_id} />
+      case 'members':
+        return <MemberManagement />
+      case 'roadmap-editor':
+        return <RoadmapEditor coachId={user.coach_id} />
+      default:
+        return <CoachDashboard coachId={user.coach_id} />
+    }
   }
 
   const renderSuperAdminDashboard = () => (
