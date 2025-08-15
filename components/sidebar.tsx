@@ -30,6 +30,14 @@ const getNavigationItems = (userRole?: string) => {
     ]
   }
   
+  if (userRole === 'coach') {
+    return [
+      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, active: true },
+      { id: "programs", label: "Programs", icon: BookOpen, active: false },
+      { id: "customers", label: "Customers", icon: Users, active: false },
+    ]
+  }
+  
   return [
     { id: "roadmap", label: "Roadmap", icon: Map, active: true },
     { id: "resources", label: "Resources", icon: BookOpen, active: false },
@@ -184,6 +192,22 @@ export function Sidebar() {
     setActiveItem("dashboard")
   }
 
+  const handleProgramsClick = () => {
+    setActiveItem("programs")
+    // Communicate with coach dashboard
+    localStorage.setItem("activeSection", "programs")
+    // Trigger a custom event to notify the dashboard
+    window.dispatchEvent(new CustomEvent('sectionChange', { detail: 'programs' }))
+  }
+
+  const handleCustomersClick = () => {
+    setActiveItem("customers")
+    // Communicate with coach dashboard
+    localStorage.setItem("activeSection", "customers")
+    // Trigger a custom event to notify the dashboard
+    window.dispatchEvent(new CustomEvent('sectionChange', { detail: 'customers' }))
+  }
+
   // Check if user is customer
   const isCustomer = user?.role === 'customer'
 
@@ -214,6 +238,10 @@ export function Sidebar() {
                     handleRoadmapClick()
                   } else if (item.id === "dashboard") {
                     handleDashboardClick()
+                  } else if (item.id === "programs") {
+                    handleProgramsClick()
+                  } else if (item.id === "customers") {
+                    handleCustomersClick()
                   } else {
                     setActiveItem(item.id)
                   }

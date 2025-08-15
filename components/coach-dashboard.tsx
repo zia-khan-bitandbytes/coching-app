@@ -77,7 +77,13 @@ interface Customer {
 
 export function CoachDashboard({ coachId }: { coachId: string }) {
   const { toast } = useToast()
-  const [activeSection, setActiveSection] = useState("overview")
+  const [activeSection, setActiveSection] = useState(() => {
+    // Get initial section from localStorage
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem("activeSection") || "overview"
+    }
+    return "overview"
+  })
   const [programs, setPrograms] = useState<Program[]>([])
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -132,6 +138,19 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   useEffect(() => {
     fetchCoachData()
   }, [coachId])
+
+  useEffect(() => {
+    // Listen for section changes from sidebar
+    const handleSectionChange = (event: CustomEvent) => {
+      setActiveSection(event.detail)
+    }
+
+    window.addEventListener('sectionChange', handleSectionChange as EventListener)
+    
+    return () => {
+      window.removeEventListener('sectionChange', handleSectionChange as EventListener)
+    }
+  }, [])
 
 
 
