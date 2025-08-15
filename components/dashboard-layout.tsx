@@ -7,12 +7,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sidebar } from "@/components/sidebar"
 import { AdminSidebar } from "@/components/admin-sidebar"
-import { CoachSidebar } from "@/components/coach-sidebar"
+
 import { useRouter } from "next/navigation"
 import { User, LogOut, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { RoadmapProvider, useRoadmap } from "@/contexts/roadmap-context"
-import { DashboardProvider } from "@/contexts/dashboard-context"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -95,8 +94,7 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
 
   return (
     <RoadmapProvider>
-      <DashboardProvider>
-        <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
@@ -153,11 +151,10 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
       </header>
 
       <div className="flex">
-        {isAdmin ? <AdminSidebar /> : isCoach ? <CoachSidebar /> : <Sidebar />}
+        {isAdmin ? <AdminSidebar /> : <Sidebar />}
         <main className="flex-1 p-6">{children}</main>
               </div>
-      </div>
-      </DashboardProvider>
-    </RoadmapProvider>
+              </div>
+      </RoadmapProvider>
   )
 }
