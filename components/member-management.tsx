@@ -76,6 +76,13 @@ export function MemberManagement() {
     }
   }, [])
 
+  // Debug: Log when component renders
+  console.log('MemberManagement component rendered with:', {
+    customers: customers.length,
+    coachId,
+    isLoading
+  })
+
   const fetchCustomers = async (coachId: string) => {
     try {
       console.log('MemberManagement: fetching customers for coachId:', coachId)

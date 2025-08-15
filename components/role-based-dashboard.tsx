@@ -52,10 +52,12 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
     }
     
     // Render different sections based on activeSection
+    console.log('CoachDashboard: rendering section:', activeSection)
     switch (activeSection) {
       case 'dashboard':
         return <CoachDashboard coachId={user.coach_id} />
       case 'members':
+        console.log('CoachDashboard: rendering MemberManagement component')
         return <MemberManagement />
       case 'roadmap-editor':
         return <RoadmapEditor coachId={user.coach_id} />

@@ -30,7 +30,10 @@ export function CoachSidebar() {
               key={item.id}
               variant={isActive ? "default" : "ghost"}
               className={`w-full justify-start ${isActive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
-              onClick={() => setActiveSection(item.id)}
+              onClick={() => {
+                console.log('Sidebar clicked:', item.id)
+                setActiveSection(item.id)
+              }}
             >
               <Icon className="mr-3 h-4 w-4" />
               {item.label}
