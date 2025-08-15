@@ -15,6 +15,8 @@ import { CoachDashboard } from "@/components/coach-dashboard"
 import { AdminDashboard } from "@/components/admin-dashboard"
 import { MemberManagement } from "@/components/member-management"
 import { RoadmapEditor } from "@/components/roadmap-editor"
+import { PaymentManagement } from "@/components/payment-management"
+import { CoachSettings } from "@/components/coach-settings"
 
 interface RoleBasedDashboardProps {
   user: {
@@ -36,7 +38,15 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
   console.log('Active section:', activeSection)
   
   const renderCustomerDashboard = () => (
-    <CustomerRoadmap customerId={user.id} />
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Your Learning Roadmap</h1>
+          <p className="text-gray-600 mt-1">Track your progress and continue your journey</p>
+        </div>
+      </div>
+      <CustomerRoadmap customerId={user.id} />
+    </div>
   )
 
   const renderCoachDashboard = () => {
@@ -54,13 +64,37 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
     // Render different sections based on activeSection
     switch (activeSection) {
       case 'dashboard':
-        return <CoachDashboard coachId={user.coach_id} />
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
+                <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
+              </div>
+            </div>
+            <CoachDashboard coachId={user.coach_id} />
+          </div>
+        )
       case 'members':
         return <MemberManagement />
       case 'roadmap-editor':
         return <RoadmapEditor coachId={user.coach_id} />
+      case 'payments':
+        return <PaymentManagement />
+      case 'settings':
+        return <CoachSettings />
       default:
-        return <CoachDashboard coachId={user.coach_id} />
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
+                <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
+              </div>
+            </div>
+            <CoachDashboard coachId={user.coach_id} />
+          </div>
+        )
     }
   }
 

@@ -53,7 +53,6 @@ function RoadmapDropdown() {
 
 export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLayoutProps) {
   const [user, setUser] = useState<{ id: string; email: string; name: string; role: string; coach_id?: string; business_name?: string } | null>(null)
-  const [currentView, setCurrentView] = useState<string>("dashboard")
   const router = useRouter()
 
   useEffect(() => {
@@ -61,29 +60,10 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
     if (userData) {
       const user = JSON.parse(userData)
       setUser(user)
-      // Set default view based on user role
-      if (user.role === 'coach') {
-        setCurrentView("dashboard")
-      } else if (user.role === 'customer') {
-        setCurrentView("roadmap")
-      }
     } else {
       router.push("/")
     }
   }, [router])
-
-  useEffect(() => {
-    // Listen for sidebar view changes
-    const handleSidebarViewChange = (event: CustomEvent) => {
-      setCurrentView(event.detail.view)
-    }
-
-    window.addEventListener('sidebarViewChanged', handleSidebarViewChange as EventListener)
-    
-    return () => {
-      window.removeEventListener('sidebarViewChanged', handleSidebarViewChange as EventListener)
-    }
-  }, [])
 
   const handleLogout = async () => {
     try {
@@ -113,58 +93,6 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
   const isAdmin = propsIsAdmin || user.role === 'super_admin'
   const isCoach = user.role === 'coach'
   const isCustomer = user.role === 'customer'
-
-  // Render content based on current view and user role
-  const renderMainContent = () => {
-    if (isCustomer) {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Your Learning Roadmap</h1>
-              <p className="text-gray-600 mt-1">Track your progress and continue your journey</p>
-            </div>
-          </div>
-          <CustomerRoadmap customerId={user.id?.toString() || ''} />
-        </div>
-      )
-    }
-    
-    if (isCoach) {
-      if (currentView === "dashboard") {
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-                <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-              </div>
-            </div>
-            <CoachDashboard coachId={user.coach_id || user.id} />
-          </div>
-        )
-      } else if (currentView === "roadmap") {
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Program Roadmaps</h1>
-                <p className="text-gray-600 mt-1">Manage and view your coaching programs</p>
-              </div>
-            </div>
-            {/* Placeholder for coach roadmap view */}
-            <div className="text-center py-12">
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Program Roadmaps</h2>
-              <p className="text-gray-500">View and manage your coaching programs here</p>
-            </div>
-          </div>
-        )
-      }
-    }
-    
-    // Default dashboard view for other roles
-    return children
-  }
 
   return (
     <DashboardProvider>
@@ -244,7 +172,7 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
         <div className="flex">
           {isAdmin ? <AdminSidebar /> : isCoach ? <CoachSidebar /> : <Sidebar />}
           <main className="flex-1 p-6">
-            {renderMainContent()}
+            {children}
           </main>
         </div>
       </div>
