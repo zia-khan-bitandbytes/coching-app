@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserRole, getRoleDisplayName } from "@/lib/auth-client"
 import Link from "next/link"
-import { CustomerDashboard } from "@/components/customer-dashboard"
+import { CustomerRoadmap } from "@/components/customer-roadmap"
 import { CoachDashboard } from "@/components/coach-dashboard"
 import { AdminDashboard } from "@/components/admin-dashboard"
 
@@ -30,7 +30,7 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
   console.log('User role:', user.role)
   
   const renderCustomerDashboard = () => (
-    <CustomerDashboard customerId={user.id} />
+    <CustomerRoadmap customerId={user.id} />
   )
 
   const renderCoachDashboard = () => {
