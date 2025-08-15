@@ -28,6 +28,7 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
   // Debug logging
   console.log('RoleBasedDashboard rendered with user:', user)
   console.log('User role:', user.role)
+  console.log('User coach_id:', user.coach_id)
   
   const renderCustomerDashboard = () => (
     <CustomerDashboard customerId={user.id} />
@@ -38,9 +39,12 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
     if (!user.coach_id) {
       return (
         <div className="text-center py-8">
-          <h2 className="text-2xl font-bold mb-2">Coach Profile Not Found</h2>
-          <p className="text-muted-foreground">Please contact support to set up your coach profile.</p>
+          <h2 className="text-2xl font-bold mb-2">Setting Up Your Coach Profile</h2>
+          <p className="text-muted-foreground">Please wait while we set up your coach profile...</p>
           <p className="text-sm text-gray-500 mt-2">User ID: {user.id}, Role: {user.role}</p>
+          <div className="mt-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          </div>
         </div>
       )
     }

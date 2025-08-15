@@ -54,16 +54,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Return user data (without password)
-    const { password: _, ...userWithoutPassword } = user
+    // Get complete user data with coach information
+    const completeUserResult = await pool.query(`
+      SELECT u.id, u.email, u.name, u.role, u.created_at, c.id as coach_id, c.business_name
+      FROM users u
+      LEFT JOIN coaches c ON u.id = c.user_id
+      WHERE u.id = $1
+    `, [user.id])
+
+    const completeUser = completeUserResult.rows[0]
     
     const response = NextResponse.json({
       message: 'Login successful',
-      user: userWithoutPassword
+      user: completeUser
     })
     
     // Set user cookie
-    response.cookies.set('user', JSON.stringify(userWithoutPassword), {
+    response.cookies.set('user', JSON.stringify(completeUser), {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',

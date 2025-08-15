@@ -32,10 +32,12 @@ export default function DashboardPage() {
           if (response.ok) {
             const fullUser = await response.json()
             console.log('Dashboard: Full user profile from API:', fullUser)
+            console.log('Dashboard: User coach_id:', fullUser.user.coach_id)
             setUser(fullUser.user)
           } else {
             // Fallback to localStorage data if API fails
             console.log('Dashboard: API failed, using localStorage data')
+            console.log('Dashboard: localStorage user coach_id:', parsedUser.coach_id)
             setUser(parsedUser)
           }
         }
