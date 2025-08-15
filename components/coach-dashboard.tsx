@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, TrendingUp, CheckCircle, DollarSign, BookOpen, Target, Calendar, Plus, UserPlus, ChevronDown, ChevronRight, Edit, Trash2, AlertTriangle, Mail, Check, Copy, BarChart3 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TaskCreationDialog } from "@/components/task-creation-dialog"
-import { useDashboard } from "@/contexts/dashboard-context"
+
 
 interface Program {
   id: string
@@ -77,7 +77,7 @@ interface Customer {
 
 export function CoachDashboard({ coachId }: { coachId: string }) {
   const { toast } = useToast()
-  const { activeSection, setActiveSection } = useDashboard()
+  const [activeSection, setActiveSection] = useState("overview")
   const [programs, setPrograms] = useState<Program[]>([])
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
