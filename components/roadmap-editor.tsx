@@ -509,7 +509,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                   </Button>
                 </div>
               </div>
-        </CardHeader>
+            </CardHeader>
 
             {expandedPrograms.has(program.id) && (
               <CardContent className="pt-0">
@@ -613,7 +613,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                       ))}
                     
                     {program.milestones.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
+                      <div className="text-center py-8 text-gray-500">
                         No milestones yet. Click "Add Milestone" to create the first one.
                       </div>
                     )}
@@ -634,9 +634,9 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                   <Plus className="h-4 w-4 mr-2" />
                   Create First Program
                 </Button>
-          </div>
-        </CardContent>
-      </Card>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>
