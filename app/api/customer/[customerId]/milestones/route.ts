@@ -15,6 +15,7 @@ export async function GET(
         m.title,
         m.description,
         m.order_index,
+        m.program_id,
         mp.completed,
         mp.completed_at,
         mp.notes,
@@ -24,11 +25,11 @@ export async function GET(
       JOIN user_programs up ON cp.id = up.program_id
       LEFT JOIN milestone_progress mp ON m.id = mp.milestone_id AND mp.user_id = $1
       WHERE up.user_id = $1
-      ORDER BY m.order_index
+      ORDER BY cp.id, m.order_index
     `, [customerId])
 
     const milestones = milestonesResult.rows.map(row => {
-      // Calculate status based on completion and order
+      // Calculate status based on completion and order within the same program
       let status = "in-progress"
       let isLocked = false
       
@@ -36,8 +37,10 @@ export async function GET(
         status = "completed"
         isLocked = false
       } else if (row.order_index > 1) {
-        // Check if previous milestone is completed
-        const previousMilestone = milestonesResult.rows.find(m => m.order_index === row.order_index - 1)
+        // Check if previous milestone in the same program is completed
+        const previousMilestone = milestonesResult.rows.find(m => 
+          m.program_id === row.program_id && m.order_index === row.order_index - 1
+        )
         if (!previousMilestone || !previousMilestone.completed) {
           status = "locked"
           isLocked = true
@@ -49,6 +52,7 @@ export async function GET(
         title: row.title,
         description: row.description,
         order_index: row.order_index,
+        program_id: row.program_id,
         completed: row.completed || false,
         completed_at: row.completed_at,
         notes: row.notes,
