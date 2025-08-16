@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+<<<<<<< HEAD
 import { useRoadmap } from "@/contexts/roadmap-context"
 import { useDashboard } from "@/contexts/dashboard-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,6 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UserRole, getRoleDisplayName } from "@/lib/auth-client"
 import Link from "next/link"
 import { CustomerRoadmap } from "@/components/customer-roadmap"
+=======
+import { UserRole } from "@/lib/auth-client"
+import { CustomerDashboard } from "@/components/customer-dashboard"
+>>>>>>> signup-issue-resolved
 import { CoachDashboard } from "@/components/coach-dashboard"
 import { AdminDashboard } from "@/components/admin-dashboard"
 import { MemberManagement } from "@/components/member-management"
@@ -35,7 +40,11 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
   // Debug logging
   console.log('RoleBasedDashboard rendered with user:', user)
   console.log('User role:', user.role)
+<<<<<<< HEAD
   console.log('Active section:', activeSection)
+=======
+  console.log('User coach_id:', user.coach_id)
+>>>>>>> signup-issue-resolved
   
   const renderCustomerDashboard = () => (
     <div className="space-y-6">
@@ -54,9 +63,12 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
     if (!user.coach_id) {
       return (
         <div className="text-center py-8">
-          <h2 className="text-2xl font-bold mb-2">Coach Profile Not Found</h2>
-          <p className="text-muted-foreground">Please contact support to set up your coach profile.</p>
+          <h2 className="text-2xl font-bold mb-2">Setting Up Your Coach Profile</h2>
+          <p className="text-muted-foreground">Please wait while we set up your coach profile...</p>
           <p className="text-sm text-gray-500 mt-2">User ID: {user.id}, Role: {user.role}</p>
+          <div className="mt-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          </div>
         </div>
       )
     }
