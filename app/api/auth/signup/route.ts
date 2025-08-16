@@ -94,28 +94,22 @@ export async function POST(request: NextRequest) {
 
     const newUser = result.rows[0] as User
 
-    // If user is a coach, create coach profile
-    if (role === 'coach') {
-      await pool.query(
-        'INSERT INTO coaches (user_id, business_name, bio, specialization, hourly_rate) VALUES ($1, $2, $3, $4, $5)',
-        [newUser.id, 'Coaching Platform', 'Professional coach helping clients achieve their goals', 'General Coaching', 100.00]
-      )
-    }
-
-    // Get complete user data with coach information
-    const completeUserResult = await pool.query(`
-      SELECT u.id, u.email, u.name, u.role, u.created_at, c.id as coach_id, c.business_name
-      FROM users u
-      LEFT JOIN coaches c ON u.id = c.user_id
-      WHERE u.id = $1
-    `, [newUser.id])
-
-    const completeUser = completeUserResult.rows[0]
+    // Return user data (without password)
+    const { password: _, ...userWithoutPassword } = newUser
     
     const response = NextResponse.json({
       message: `${role === 'coach' ? 'Coach' : 'Customer'} account created successfully`,
-      user: completeUser
+      user: userWithoutPassword
     }, { status: 201 })
+    
+    // Set user cookie to automatically log in the user
+    response.cookies.set('user', JSON.stringify(userWithoutPassword), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/'
+    })
     
     return response
 

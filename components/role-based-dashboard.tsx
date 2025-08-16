@@ -1,9 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-<<<<<<< HEAD
 import { useRoadmap } from "@/contexts/roadmap-context"
-import { useDashboard } from "@/contexts/dashboard-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,17 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserRole, getRoleDisplayName } from "@/lib/auth-client"
 import Link from "next/link"
-import { CustomerRoadmap } from "@/components/customer-roadmap"
-=======
-import { UserRole } from "@/lib/auth-client"
 import { CustomerDashboard } from "@/components/customer-dashboard"
->>>>>>> signup-issue-resolved
 import { CoachDashboard } from "@/components/coach-dashboard"
 import { AdminDashboard } from "@/components/admin-dashboard"
-import { MemberManagement } from "@/components/member-management"
-import { RoadmapEditor } from "@/components/roadmap-editor"
-import { PaymentManagement } from "@/components/payment-management"
-import { CoachSettings } from "@/components/coach-settings"
 
 interface RoleBasedDashboardProps {
   user: {
@@ -35,27 +25,12 @@ interface RoleBasedDashboardProps {
 }
 
 export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
-  const { activeSection } = useDashboard()
-  
   // Debug logging
   console.log('RoleBasedDashboard rendered with user:', user)
   console.log('User role:', user.role)
-<<<<<<< HEAD
-  console.log('Active section:', activeSection)
-=======
-  console.log('User coach_id:', user.coach_id)
->>>>>>> signup-issue-resolved
   
   const renderCustomerDashboard = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Your Learning Roadmap</h1>
-          <p className="text-gray-600 mt-1">Track your progress and continue your journey</p>
-        </div>
-      </div>
-      <CustomerRoadmap customerId={user.id} />
-    </div>
+    <CustomerDashboard customerId={user.id} />
   )
 
   const renderCoachDashboard = () => {
@@ -63,53 +38,14 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
     if (!user.coach_id) {
       return (
         <div className="text-center py-8">
-          <h2 className="text-2xl font-bold mb-2">Setting Up Your Coach Profile</h2>
-          <p className="text-muted-foreground">Please wait while we set up your coach profile...</p>
+          <h2 className="text-2xl font-bold mb-2">Coach Profile Not Found</h2>
+          <p className="text-muted-foreground">Please contact support to set up your coach profile.</p>
           <p className="text-sm text-gray-500 mt-2">User ID: {user.id}, Role: {user.role}</p>
-          <div className="mt-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          </div>
         </div>
       )
     }
     
-    // Render different sections based on activeSection
-    console.log('CoachDashboard: rendering section:', activeSection)
-    switch (activeSection) {
-      case 'dashboard':
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-                <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-              </div>
-            </div>
-            <CoachDashboard coachId={user.coach_id} />
-          </div>
-        )
-      case 'members':
-        console.log('CoachDashboard: rendering MemberManagement component')
-        return <MemberManagement />
-      case 'roadmap-editor':
-        return <RoadmapEditor coachId={user.coach_id} />
-      case 'payments':
-        return <PaymentManagement />
-      case 'settings':
-        return <CoachSettings />
-      default:
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-                <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-              </div>
-            </div>
-            <CoachDashboard coachId={user.coach_id} />
-          </div>
-        )
-    }
+    return <CoachDashboard coachId={user.coach_id} />
   }
 
   const renderSuperAdminDashboard = () => (

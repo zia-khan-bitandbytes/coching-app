@@ -1,26 +1,8 @@
 "use client"
-<<<<<<< HEAD
-
-import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useState, useEffect } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-<<<<<<< HEAD
-import { Progress } from "@/components/ui/progress"
-import { 
-  Users, 
-  TrendingUp, 
-  Clock, 
-  DollarSign, 
-  AlertTriangle,
-  CheckCircle,
-  Target,
-  BarChart3
-} from "lucide-react"
-import { motion } from "framer-motion"
-
-interface CoachDashboardProps {
-  coachId: string
-=======
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -30,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Users, TrendingUp, CheckCircle, DollarSign, BookOpen, Target, Calendar, Plus, UserPlus, ChevronDown, ChevronRight, Edit, Trash2, AlertTriangle, Mail, Check, Copy, BarChart3 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { TaskCreationDialog } from "@/components/task-creation-dialog"
-
+import { useDashboard } from "@/contexts/dashboard-context"
 
 interface Program {
   id: string
@@ -43,85 +25,59 @@ interface Program {
   milestones_count: number
   members_count: number
   milestones?: Milestone[]
->>>>>>> signup-issue-resolved
 }
 
-export function CoachDashboard({ coachId }: CoachDashboardProps) {
-  // Mock data for demonstration
-  const kpiData = {
-    totalClients: 247,
-    clientSuccessRate: 75,
-    timeToValue: 240,
-    monthlyRevenue: 124500
-  }
+interface Task {
+  id: string
+  title: string
+  description: string
+  completed: boolean
+  order_index: number
+  milestone_id: string
+  created_at: string
+  completed_at?: string
+}
 
-  const ttvBreakdown = [
-    {
-      milestone: "Milestone 1",
-      completion: 28,
-      goal: 30,
-      status: "on-track",
-      progress: 93
-    },
-    {
-      milestone: "Milestone 2", 
-      completion: 45,
-      goal: 35,
-      status: "over-target",
-      progress: 78
-    },
-    {
-      milestone: "Milestone 3",
-      completion: 52,
-      goal: 40,
-      status: "over-target",
-      progress: 77
-    }
-  ]
+interface Milestone {
+  id: string
+  title: string
+  description: string
+  order_index: number
+  program_id: string
+  program_name: string
+  created_at: string
+  completed_count?: number
+  total_enrolled?: number
+  completion_rate?: number
+  tasks?: Task[]
+}
 
-  const frictionZones = [
-    {
-      milestone: "Milestone 1",
-      avgDays: 28,
-      completion: 95,
-      frictionLevel: "Low",
-      status: "low"
-    },
-    {
-      milestone: "Milestone 2",
-      avgDays: 45,
-      completion: 87,
-      frictionLevel: "Medium",
-      status: "medium"
-    },
-    {
-      milestone: "Milestone 3",
-      avgDays: 52,
-      completion: 70,
-      frictionLevel: "High Friction",
-      status: "high"
-    }
-  ]
+interface Customer {
+  id: string
+  name: string
+  email: string
+  enrolled_programs: {
+    id: string
+    name: string
+    description: string
+    duration_weeks: number
+    price: number
+    is_active: boolean
+    enrollment_status: string
+    enrolled_at: string
+    milestones_count: number
+    completed_milestones: number
+  }[]
+  total_programs: number
+  active_programs: number
+  completed_milestones: number
+  total_spent: number
+  last_activity: string
+}
 
-<<<<<<< HEAD
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "on-track":
-        return <CheckCircle className="h-5 w-5 text-green-500" />
-      case "over-target":
-        return <AlertTriangle className="h-5 w-5 text-orange-500" />
-      default:
-        return <Target className="h-5 w-5 text-gray-500" />
-=======
 export function CoachDashboard({ coachId }: { coachId: string }) {
   const { toast } = useToast()
-  const [activeSection, setActiveSection] = useState(() => {
-    // Get initial section from localStorage
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem("activeSection") || "overview"
-    }
-    return "overview"
-  })
+  const { activeSection, setActiveSection } = useDashboard()
   const [programs, setPrograms] = useState<Program[]>([])
   const [milestones, setMilestones] = useState<Milestone[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -176,19 +132,6 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   useEffect(() => {
     fetchCoachData()
   }, [coachId])
-
-  useEffect(() => {
-    // Listen for section changes from sidebar
-    const handleSectionChange = (event: CustomEvent) => {
-      setActiveSection(event.detail)
-    }
-
-    window.addEventListener('sectionChange', handleSectionChange as EventListener)
-    
-    return () => {
-      window.removeEventListener('sectionChange', handleSectionChange as EventListener)
-    }
-  }, [])
 
 
 
@@ -279,275 +222,53 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       }
     } catch (error) {
       console.error('Error fetching coach data:', error)
->>>>>>> signup-issue-resolved
     }
   }
 
-  const getFrictionBadge = (level: string) => {
-    switch (level) {
-      case "low":
-        return <Badge variant="secondary" className="bg-gray-900 text-white">Low</Badge>
-      case "medium":
-        return <Badge variant="secondary" className="bg-gray-900 text-white">Medium</Badge>
-      case "high":
-        return <Badge variant="destructive">High Friction</Badge>
-      default:
-        return <Badge variant="secondary">Unknown</Badge>
-    }
-  }
-
-  const getFrictionIcon = (status: string) => {
-    switch (status) {
-      case "low":
-        return <CheckCircle className="h-5 w-5 text-green-500" />
-      case "medium":
-        return <AlertTriangle className="h-5 w-5 text-orange-500" />
-      case "high":
-        return <AlertTriangle className="h-5 w-5 text-red-500" />
-      default:
-        return <Target className="h-5 w-5 text-gray-500" />
-    }
-  }
-
-<<<<<<< HEAD
-  return (
-    <div className="space-y-8 p-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-        <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-      </div>
-
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Clients Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card className="bg-gray-50 border-gray-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Clients</CardTitle>
-              <Users className="h-4 w-4 text-gray-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{kpiData.totalClients.toLocaleString()}</div>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600 font-medium">+12%</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">23 new this month</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Client Success Rate Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card className="bg-gray-50 border-gray-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Client Success Rate (CSR)</CardTitle>
-              <div className="w-3 h-3 bg-green-500 rounded-full" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{kpiData.clientSuccessRate}%</div>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600 font-medium">+5%</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">185 of 247 completed</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Time To Value Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-        >
-          <Card className="bg-orange-50 border-orange-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Time To Value (TTV)</CardTitle>
-              <Clock className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{kpiData.timeToValue} days</div>
-              <p className="text-xs text-gray-600 mt-1">Goal: 180 days</p>
-              <p className="text-xs text-orange-600 font-medium mt-1">60 days over target</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Monthly Revenue Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          <Card className="bg-gray-50 border-gray-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Monthly Revenue $</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">${kpiData.monthlyRevenue.toLocaleString()}</div>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600 font-medium">+8%</span>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">vs last month</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Detailed Sections Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Time To Value (TTV) Breakdown */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-        >
-          <Card>
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <Clock className="h-5 w-5 text-orange-600" />
-                <CardTitle className="text-lg">Time To Value (TTV) Breakdown</CardTitle>
-              </div>
-              <p className="text-sm text-gray-600">Average completion time per milestone vs goals</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {ttvBreakdown.map((item, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(item.status)}
-                      <span className="font-medium text-gray-700">{item.milestone}:</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-semibold text-gray-900">{item.completion} days</span>
-                      <span className="text-sm text-gray-500 ml-1">(Goal: {item.goal}d)</span>
-                    </div>
-                  </div>
-                  <Progress value={item.progress} className="h-2" />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Friction Zones Heatmap */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-        >
-          <Card>
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-                <CardTitle className="text-lg">Friction Zones Heatmap</CardTitle>
-              </div>
-              <p className="text-sm text-gray-600">Where clients spend the most time and struggle</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {frictionZones.map((zone, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    {getFrictionIcon(zone.status)}
-                    <div>
-                      <span className="font-medium text-gray-700">{zone.milestone}</span>
-                      <p className="text-sm text-gray-500">
-                        {zone.avgDays} days avg • {zone.completion}% completion
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {getFrictionBadge(zone.status)}
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Additional Insights Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.7 }}
-      >
-        <Card>
-          <CardHeader>
-            <div className="flex items-center space-x-2">
-              <BarChart3 className="h-5 w-5 text-blue-600" />
-              <CardTitle className="text-lg">Performance Insights</CardTitle>
-            </div>
-            <p className="text-sm text-gray-600">Key areas to focus on for improvement</p>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">28</div>
-                <div className="text-sm text-blue-600 font-medium">Avg Days to First Milestone</div>
-                <div className="text-xs text-gray-500 mt-1">Target: 30 days</div>
-              </div>
-              <div className="text-center p-4 bg-orange-50 rounded-lg">
-                <div className="text-2xl font-bold text-orange-600">87%</div>
-                <div className="text-sm text-orange-600 font-medium">Milestone 2 Completion</div>
-                <div className="text-xs text-gray-500 mt-1">Needs attention</div>
-              </div>
-              <div className="text-center p-4 bg-red-50 rounded-lg">
-                <div className="text-2xl font-bold text-red-600">70%</div>
-                <div className="text-sm text-red-600 font-medium">Final Milestone Success</div>
-                <div className="text-xs text-gray-500 mt-1">Critical area</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-=======
-=======
-  const handleDeleteProgram = async (programId: string, programName: string) => {
-    if (!confirm(`Are you sure you want to delete the program "${programName}"? This action cannot be undone and will also delete all associated milestones and tasks.`)) {
-      return
-    }
-
+  const handleAddProgram = async () => {
     try {
-      const response = await fetch(`/api/coach/${coachId}/programs/${programId}`, {
-        method: 'DELETE'
+      const response = await fetch('/api/coach/programs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...newProgram, coach_id: coachId })
       })
-
+      
       if (response.ok) {
-        toast({
-          title: "Program deleted",
-          description: `"${programName}" has been successfully deleted.`,
-          variant: "default",
+        setAddProgramOpen(false)
+        setNewProgram({ name: '', description: '', duration_weeks: 4, price: 0 })
+        fetchCoachData() // Refresh data
+      }
+    } catch (error) {
+      console.error('Error adding program:', error)
+    }
+  }
+
+  const handleAddMilestone = async () => {
+    try {
+      if (!newMilestone.program_id) {
+        console.error('No program selected for milestone')
+        return
+      }
+
+      const response = await fetch(`/api/coach/${coachId}/programs/${newMilestone.program_id}/milestones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newMilestone.title,
+          description: newMilestone.description
         })
+      })
+      
+      if (response.ok) {
+        setAddMilestoneOpen(false)
+        setNewMilestone({ title: '', description: '', program_id: '' })
         fetchCoachData() // Refresh data
       } else {
         const errorData = await response.json()
-        console.error('Failed to delete program:', errorData)
-        toast({
-          title: "Error",
-          description: "Failed to delete program. Please try again.",
-          variant: "destructive",
-        })
+        console.error('Failed to create milestone:', errorData)
       }
     } catch (error) {
-      console.error('Error deleting program:', error)
-      toast({
-        title: "Error",
-        description: "Failed to delete program. Please try again.",
-        variant: "destructive",
-      })
+      console.error('Error adding milestone:', error)
     }
   }
 
@@ -988,14 +709,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                       <Plus className="h-3 w-3 mr-1" />
                       Add Milestone
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDeleteProgram(program.id, program.name)}
-                      className="h-8 text-red-600 border-red-200 hover:text-red-700 hover:bg-red-50 hover:border-red-300"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+
                   </div>
                 </div>
                 
@@ -1694,17 +1408,54 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
 
 
 
->>>>>>> signup-issue-resolved
 
-export function CoachDashboard({ coachId }: { coachId: string }) {
-  return (
-    <div className="space-y-6">
-      {/* Empty Dashboard */}
-      <div className="text-center py-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Coach Dashboard</h2>
-        <p className="text-gray-600">Welcome to your coaching dashboard</p>
-      </div>
->>>>>>> admin-side-updated
+      {/* Edit Task Dialog */}
+      <Dialog open={editTaskOpen} onOpenChange={setEditTaskOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+            <DialogDescription>Update task details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-task-title">Title</Label>
+              <Input
+                id="edit-task-title"
+                value={editTaskData.title}
+                onChange={(e) => setEditTaskData({ ...editTaskData, title: e.target.value })}
+                placeholder="Enter task title"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-task-description">Description</Label>
+              <Textarea
+                id="edit-task-description"
+                value={editTaskData.description}
+                onChange={(e) => setEditTaskData({ ...editTaskData, description: e.target.value })}
+                placeholder="Enter task description"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="edit-task-requires-upload"
+                checked={editTaskData.requiresUpload}
+                onChange={(e) => setEditTaskData({ ...editTaskData, requiresUpload: e.target.checked })}
+                className="rounded"
+              />
+              <Label htmlFor="edit-task-requires-upload">Requires file upload</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTaskOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveTaskEdit}>
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 } 
