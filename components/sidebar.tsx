@@ -1,29 +1,23 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
-import { Map, BookOpen, HelpCircle, Users, X, LayoutDashboard } from "lucide-react"
-import { showSuccessToast, showErrorToast } from "@/lib/toast"
-import { RoadmapView } from "./roadmap-view"
-import { useDashboard } from "@/contexts/dashboard-context"
-
-interface Message {
-  id: string
-  user: string
-  text: string
-  timestamp: string
-  replies?: Message[]
-  reactions?: { [emoji: string]: number }
-}
+import { Map, BookOpen, HelpCircle, Users, BarChart3 } from "lucide-react"
 
 const getNavigationItems = (userRole?: string) => {
   if (userRole === 'customer') {
     return [
-      { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, active: true },
+      { id: "roadmap", label: "Roadmap", icon: Map, active: true },
+      { id: "resources", label: "Resources", icon: BookOpen, active: false },
+      { id: "support", label: "Support", icon: HelpCircle, active: false },
+      { id: "community", label: "A Community", icon: Users, active: false },
+    ]
+  }
+  
+  if (userRole === 'coach') {
+    return [
+      { id: "dashboard", label: "Dashboard", icon: BarChart3, active: true },
       { id: "roadmap", label: "Roadmap", icon: Map, active: false },
       { id: "resources", label: "Resources", icon: BookOpen, active: false },
       { id: "support", label: "Support", icon: HelpCircle, active: false },
@@ -36,9 +30,6 @@ const getNavigationItems = (userRole?: string) => {
       { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, active: true },
       { id: "programs", label: "Programs", icon: BookOpen, active: false },
       { id: "customers", label: "Customers", icon: Users, active: false },
-      { id: "roadmap", label: "Roadmap", icon: Map, active: false },
-      { id: "resources", label: "Resources", icon: BookOpen, active: false },
-      { id: "support", label: "Support", icon: HelpCircle, active: false },
     ]
   }
   
@@ -51,16 +42,8 @@ const getNavigationItems = (userRole?: string) => {
 }
 
 export function Sidebar() {
-  const { activeSection, setActiveSection } = useDashboard()
-  const [activeItem, setActiveItem] = useState("roadmap")
-  const [isCommunityOpen, setIsCommunityOpen] = useState(false)
-  const [isRoadmapOpen, setIsRoadmapOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [replyTo, setReplyTo] = useState<string | null>(null)
+  const [activeItem, setActiveItem] = useState("dashboard")
   const [user, setUser] = useState<any>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     // Get user from localStorage
@@ -69,7 +52,12 @@ export function Sidebar() {
       const user = JSON.parse(userData)
       setUser(user)
       // Set default active item based on user role
-      if (user.role === 'customer' || user.role === 'coach') {
+      if (user.role === 'customer') {
+        // Customers only see roadmap view
+        setActiveItem("roadmap")
+        localStorage.setItem('customerActiveView', 'roadmap')
+      } else if (user.role === 'coach') {
+        // Coaches see dashboard by default
         setActiveItem("dashboard")
       } else {
         setActiveItem("roadmap")
@@ -77,140 +65,53 @@ export function Sidebar() {
     }
   }, [])
 
-  useEffect(() => {
-    // Fetch messages when community modal is open
-    if (isCommunityOpen) {
-      fetchMessages()
-      const interval = setInterval(fetchMessages, 5000)
-      return () => clearInterval(interval)
-    }
-  }, [isCommunityOpen])
-
-  const fetchMessages = async () => {
-    try {
-      const response = await fetch('/api/community/messages')
-      const data = await response.json()
-      if (response.ok) {
-        setMessages(data.messages)
-      }
-    } catch (error) {
-      console.error('Failed to fetch messages:', error)
-    }
-  }
-
-  const handleSend = async () => {
-    if (!input.trim() || !user) return
-    setLoading(true)
-    
-    try {
-      const response = await fetch('/api/community/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: input,
-          userId: user.id,
-          parentId: replyTo
-        })
-      })
-      
-      const data = await response.json()
-      if (response.ok) {
-        setInput("")
-        setReplyTo(null)
-        showSuccessToast('Message sent!')
-        fetchMessages()
-      } else {
-        showErrorToast(data.error || 'Failed to send message')
-      }
-    } catch (error) {
-      showErrorToast('Failed to send message')
-    } finally {
-      setLoading(false)
-      inputRef.current?.focus()
-    }
-  }
-
-  const handleReact = async (msgId: string, emoji: string) => {
-    if (!user) return
-    
-    try {
-      const response = await fetch('/api/community/reactions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageId: msgId,
-          userId: user.id,
-          emoji
-        })
-      })
-      
-      const data = await response.json()
-      if (response.ok) {
-        setMessages(msgs => 
-          msgs.map(msg => {
-            if (msg.id === msgId) {
-              return { ...msg, reactions: { ...msg.reactions, [emoji]: data.count } }
-            }
-            if (msg.replies) {
-              const updatedReplies = msg.replies.map(reply => 
-                reply.id === msgId 
-                  ? { ...reply, reactions: { ...reply.reactions, [emoji]: data.count } }
-                  : reply
-              )
-              return { ...msg, replies: updatedReplies }
-            }
-            return msg
-          })
-        )
-      }
-    } catch (error) {
-      showErrorToast('Failed to update reaction')
-    }
-  }
-
-  const handleReply = (msgId: string) => {
-    setReplyTo(msgId)
-    inputRef.current?.focus()
-  }
-
-  const handleCommunityClick = () => {
-    setIsCommunityOpen(true)
-  }
-
   const handleRoadmapClick = () => {
-    setIsRoadmapOpen(true)
-  }
-
-  const handleCloseCommunity = () => {
-    setIsCommunityOpen(false)
-    setReplyTo(null)
-    setInput("")
-  }
-
-  const handleCloseRoadmap = () => {
-    setIsRoadmapOpen(false)
+    console.log('Roadmap clicked, isCustomer:', isCustomer)
+    // For customers, clicking roadmap should show the roadmap component
+    if (isCustomer) {
+      // Show roadmap by setting active item
+      setActiveItem("roadmap")
+      // Store in localStorage to persist the selection
+      localStorage.setItem('customerActiveView', 'roadmap')
+      // Emit a custom event to notify the parent component
+      window.dispatchEvent(new CustomEvent('sidebarViewChanged', { 
+        detail: { view: 'roadmap' } 
+      }))
+    }
   }
 
   const handleDashboardClick = () => {
-    // For customers, clicking dashboard should show the main dashboard content
-    // This is already handled by the main dashboard layout
-    setActiveItem("dashboard")
-    setActiveSection("dashboard")
+    if (user?.role === 'coach') {
+      setActiveItem("dashboard")
+      // Emit a custom event to notify the parent component
+      window.dispatchEvent(new CustomEvent('sidebarViewChanged', { 
+        detail: { view: 'dashboard' } 
+      }))
+    }
+  }
+
+  const handleCommunityClick = () => {
+    // Community functionality removed - button remains but does nothing
+    console.log('Community button clicked - functionality removed')
   }
 
   const handleProgramsClick = () => {
-    // For coaches, clicking programs should show the programs content
     setActiveItem("programs")
-    setActiveSection("programs")
+    // Communicate with coach dashboard
+    localStorage.setItem("activeSection", "programs")
+    // Trigger a custom event to notify the dashboard
+    window.dispatchEvent(new CustomEvent('sectionChange', { detail: 'programs' }))
   }
 
   const handleCustomersClick = () => {
-    // For coaches, clicking customers should show the customers content
     setActiveItem("customers")
-    setActiveSection("customers")
+    // Communicate with coach dashboard
+    localStorage.setItem("activeSection", "customers")
+    // Trigger a custom event to notify the dashboard
+    window.dispatchEvent(new CustomEvent('sectionChange', { detail: 'customers' }))
   }
 
-  // Check if user is customer or coach
+  // Check if user is customer
   const isCustomer = user?.role === 'customer'
   const isCoach = user?.role === 'coach'
 
@@ -223,21 +124,6 @@ export function Sidebar() {
             
             // Only show Roadmap and Community for customers
             if (!isCustomer && (item.id === "roadmap" || item.id === "community")) {
-              return null
-            }
-            
-            // Show dashboard for both customers and coaches
-            if (item.id === "dashboard" && !isCustomer && !isCoach) {
-              return null
-            }
-            
-            // Show programs only for coaches
-            if (item.id === "programs" && !isCoach) {
-              return null
-            }
-            
-            // Show customers only for coaches
-            if (item.id === "customers" && !isCoach) {
               return null
             }
             
@@ -382,5 +268,6 @@ export function Sidebar() {
         </Dialog>
       )}
     </>
+>>>>>>> signup-issue-resolved
   )
 }

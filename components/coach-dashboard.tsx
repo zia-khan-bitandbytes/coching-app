@@ -17,7 +17,7 @@ import {
 import { motion } from "framer-motion"
 
 interface CoachDashboardProps {
-  coachId: string
+  coachId?: string
 }
 
 export function CoachDashboard({ coachId }: CoachDashboardProps) {
@@ -115,172 +115,139 @@ export function CoachDashboard({ coachId }: CoachDashboardProps) {
   }
 
   return (
-    <div className="space-y-8 p-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-        <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-      </div>
-
-      {/* KPI Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {/* Total Clients Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card className="bg-gray-50 border-gray-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total Clients</CardTitle>
-              <Users className="h-4 w-4 text-gray-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{kpiData.totalClients.toLocaleString()}</div>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600 font-medium">+12%</span>
+    <div className="space-y-6">
+      {/* KPI Overview */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+      >
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-blue-100 rounded-lg">
+                <Users className="h-6 w-6 text-blue-600" />
               </div>
-              <p className="text-xs text-gray-500 mt-1">23 new this month</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Client Success Rate Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <Card className="bg-gray-50 border-gray-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Client Success Rate (CSR)</CardTitle>
-              <div className="w-3 h-3 bg-green-500 rounded-full" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{kpiData.clientSuccessRate}%</div>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600 font-medium">+5%</span>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Clients</p>
+                <p className="text-2xl font-bold text-gray-900">{kpiData.totalClients}</p>
               </div>
-              <p className="text-xs text-gray-500 mt-1">185 of 247 completed</p>
-            </CardContent>
-          </Card>
-        </motion.div>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Time To Value Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-        >
-          <Card className="bg-orange-50 border-orange-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Time To Value (TTV)</CardTitle>
-              <Clock className="h-4 w-4 text-orange-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{kpiData.timeToValue} days</div>
-              <p className="text-xs text-gray-600 mt-1">Goal: 180 days</p>
-              <p className="text-xs text-orange-600 font-medium mt-1">60 days over target</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Monthly Revenue Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-        >
-          <Card className="bg-gray-50 border-gray-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Monthly Revenue $</CardTitle>
-              <DollarSign className="h-4 w-4 text-green-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">${kpiData.monthlyRevenue.toLocaleString()}</div>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="h-4 w-4 text-green-500" />
-                <span className="text-sm text-green-600 font-medium">+8%</span>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-green-100 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-green-600" />
               </div>
-              <p className="text-xs text-gray-500 mt-1">vs last month</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Detailed Sections Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Time To Value (TTV) Breakdown */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-        >
-          <Card>
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <Clock className="h-5 w-5 text-orange-600" />
-                <CardTitle className="text-lg">Time To Value (TTV) Breakdown</CardTitle>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Success Rate</p>
+                <p className="text-2xl font-bold text-gray-900">{kpiData.clientSuccessRate}%</p>
               </div>
-              <p className="text-sm text-gray-600">Average completion time per milestone vs goals</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {ttvBreakdown.map((item, index) => (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      {getStatusIcon(item.status)}
-                      <span className="font-medium text-gray-700">{item.milestone}:</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-semibold text-gray-900">{item.completion} days</span>
-                      <span className="text-sm text-gray-500 ml-1">(Goal: {item.goal}d)</span>
-                    </div>
-                  </div>
-                  <Progress value={item.progress} className="h-2" />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* Friction Zones Heatmap */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.6 }}
-        >
-          <Card>
-            <CardHeader>
-              <div className="flex items-center space-x-2">
-                <AlertTriangle className="h-5 w-5 text-red-600" />
-                <CardTitle className="text-lg">Friction Zones Heatmap</CardTitle>
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <Clock className="h-6 w-6 text-orange-600" />
               </div>
-              <p className="text-sm text-gray-600">Where clients spend the most time and struggle</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {frictionZones.map((zone, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    {getFrictionIcon(zone.status)}
-                    <div>
-                      <span className="font-medium text-gray-700">{zone.milestone}</span>
-                      <p className="text-sm text-gray-500">
-                        {zone.avgDays} days avg • {zone.completion}% completion
-                      </p>
-                    </div>
-                  </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Time to Value</p>
+                <p className="text-2xl font-bold text-gray-900">{kpiData.timeToValue} days</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <DollarSign className="h-6 w-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-600">Monthly Revenue</p>
+                <p className="text-2xl font-bold text-gray-900">${kpiData.monthlyRevenue.toLocaleString()}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Time to Value Breakdown */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, delay: 0.3 }}
+      >
+        <Card>
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <Clock className="h-5 w-5 text-blue-600" />
+              <CardTitle className="text-lg">Time to Value Breakdown</CardTitle>
+            </div>
+            <p className="text-sm text-gray-600">Average days to complete each milestone</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {ttvBreakdown.map((item, index) => (
+              <div key={index} className="space-y-2">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
-                    {getFrictionBadge(zone.status)}
+                    {getStatusIcon(item.status)}
+                    <span className="font-medium text-gray-700">{item.milestone}:</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-semibold text-gray-900">{item.completion} days</span>
+                    <span className="text-sm text-gray-500 ml-1">(Goal: {item.goal}d)</span>
                   </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+                <Progress value={item.progress} className="h-2" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Friction Zones Heatmap */}
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, delay: 0.6 }}
+      >
+        <Card>
+          <CardHeader>
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <CardTitle className="text-lg">Friction Zones Heatmap</CardTitle>
+            </div>
+            <p className="text-sm text-gray-600">Where clients spend the most time and struggle</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {frictionZones.map((zone, index) => (
+              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  {getFrictionIcon(zone.status)}
+                  <div>
+                    <span className="font-medium text-gray-700">{zone.milestone}</span>
+                    <p className="text-sm text-gray-500">
+                      {zone.avgDays} days avg • {zone.completion}% completion
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {getFrictionBadge(zone.status)}
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Additional Insights Section */}
       <motion.div
