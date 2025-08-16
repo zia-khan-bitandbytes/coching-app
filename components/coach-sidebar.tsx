@@ -1,48 +1,51 @@
 "use client"
-
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { LayoutDashboard, Users, Map, CreditCard, Settings } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { LayoutDashboard, BookOpen, Users, Settings } from "lucide-react"
+import { useRouter, usePathname } from "next/navigation"
 import { useDashboard } from "@/contexts/dashboard-context"
 
-const menuItems = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'members', label: 'Members', icon: Users },
-  { id: 'roadmap-editor', label: 'Roadmap Editor', icon: Map },
-  { id: 'payments', label: 'Payments', icon: CreditCard },
-  { id: 'settings', label: 'Settings', icon: Settings },
+const navigationItems = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "programs", label: "Programs", icon: BookOpen },
+  { id: "customers", label: "Customers", icon: Users },
+  { id: "settings", label: "Settings", icon: Settings },
 ]
 
 export function CoachSidebar() {
+  const router = useRouter()
+  const pathname = usePathname()
   const { activeSection, setActiveSection } = useDashboard()
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 p-4">
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold text-gray-900">Coach Dashboard</h2>
-      </div>
-      
+    <aside className="w-64 bg-white border-r border-gray-200 p-6">
       <nav className="space-y-2">
-        {menuItems.map((item) => {
+        {navigationItems.map((item) => {
           const Icon = item.icon
-          const isActive = activeSection === item.id
-          
+          const isActive = item.id === activeSection || (item.id === "dashboard" && activeSection === "overview")
           return (
             <Button
               key={item.id}
-              variant={isActive ? "default" : "ghost"}
-              className={`w-full justify-start ${isActive ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+              variant={isActive ? "secondary" : "ghost"}
+              className={cn("w-full justify-start gap-3 text-left", isActive && "bg-gray-100 text-gray-900")}
               onClick={() => {
-                console.log('Sidebar clicked:', item.id)
-                setActiveSection(item.id)
+                if (item.id === "dashboard") {
+                  setActiveSection("overview")
+                } else if (item.id === "programs") {
+                  setActiveSection("programs")
+                } else if (item.id === "customers") {
+                  setActiveSection("customers")
+                } else {
+                  setActiveSection(item.id)
+                }
               }}
             >
-              <Icon className="mr-3 h-4 w-4" />
+              <Icon className="h-4 w-4" />
               {item.label}
             </Button>
           )
         })}
       </nav>
-    </div>
+    </aside>
   )
 }
