@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { RoleBasedDashboard } from "@/components/role-based-dashboard"
+import { DashboardProvider } from "@/contexts/dashboard-context"
 import { UserRole } from "@/lib/auth-client"
 
 interface User {
