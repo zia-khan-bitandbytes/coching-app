@@ -10,7 +10,7 @@ interface DashboardContextType {
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined)
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const [activeSection, setActiveSection] = useState('overview')
+  const [activeSection, setActiveSection] = useState('dashboard')
 
   return (
     <DashboardContext.Provider value={{ activeSection, setActiveSection }}>

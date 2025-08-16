@@ -36,7 +36,6 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
   console.log('RoleBasedDashboard rendered with user:', user)
   console.log('User role:', user.role)
   console.log('Active section:', activeSection)
-  console.log('User coach_id:', user.coach_id)
   
   const renderCustomerDashboard = () => (
     <div className="space-y-6">
@@ -55,18 +54,14 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
     if (!user.coach_id) {
       return (
         <div className="text-center py-8">
-          <h2 className="text-2xl font-bold mb-2">Setting Up Your Coach Profile</h2>
-          <p className="text-muted-foreground">Please wait while we set up your coach profile...</p>
+          <h2 className="text-2xl font-bold mb-2">Coach Profile Not Found</h2>
+          <p className="text-muted-foreground">Please contact support to set up your coach profile.</p>
           <p className="text-sm text-gray-500 mt-2">User ID: {user.id}, Role: {user.role}</p>
-          <div className="mt-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          </div>
         </div>
       )
     }
     
     // Render different sections based on activeSection
-    console.log('CoachDashboard: rendering section:', activeSection)
     switch (activeSection) {
       case 'dashboard':
         return (
@@ -81,7 +76,6 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
           </div>
         )
       case 'members':
-        console.log('CoachDashboard: rendering MemberManagement component')
         return <MemberManagement />
       case 'roadmap-editor':
         return <RoadmapEditor coachId={user.coach_id} />
