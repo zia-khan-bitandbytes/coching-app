@@ -95,19 +95,19 @@ export function MemberManagement() {
         console.log('MemberManagement: setting customers:', customersData.customers)
         setCustomers(customersData.customers)
       } else {
-        console.log('MemberManagement: customers fetch failed:', customersData.error)
+        console.log('MemberManagement: API returned success: false, error:', customersData.error)
         toast({
           title: "Error",
-          description: "Failed to fetch customers",
-          variant: "destructive",
+          description: customersData.error || "Failed to fetch customers",
+          variant: "destructive"
         })
       }
     } catch (error) {
-      console.error('MemberManagement: error fetching customers:', error)
+      console.error('MemberManagement: Error fetching customers:', error)
       toast({
         title: "Error",
         description: "Failed to fetch customers",
-        variant: "destructive",
+        variant: "destructive"
       })
     } finally {
       setIsLoading(false)
@@ -119,42 +119,58 @@ export function MemberManagement() {
       toast({
         title: "Error",
         description: "Please fill in all fields",
-        variant: "destructive",
+        variant: "destructive"
       })
       return
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(invitationData.email.trim())) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid email address",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Trim whitespace from email and name
+    const cleanEmail = invitationData.email.trim()
+    const cleanName = invitationData.name.trim()
+
     try {
       const response = await fetch(`/api/coach/${coachId}/invite`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(invitationData),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: invitationData.email,
+          name: invitationData.name,
+          program_id: invitationData.program_id
+        })
       })
 
       const data = await response.json()
 
       if (data.success) {
-        setInvitationLink(data.invitation_link)
+        setInvitationLink(data.invitationLink)
         setShowInvitationLink(true)
         toast({
           title: "Success",
-          description: "Invitation sent successfully",
+          description: "Invitation email sent successfully!",
         })
       } else {
         toast({
           title: "Error",
-          description: data.error || "Failed to send invitation",
-          variant: "destructive",
+          description: data.error || 'Failed to send invitation',
+          variant: "destructive"
         })
       }
     } catch (error) {
-      console.error('Error sending invitation:', error)
       toast({
         title: "Error",
-        description: "Failed to send invitation",
-        variant: "destructive",
+        description: 'Failed to send invitation',
+        variant: "destructive"
       })
     }
   }
@@ -169,26 +185,20 @@ export function MemberManagement() {
       })
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
-      console.error('Failed to copy:', error)
       toast({
         title: "Error",
-        description: "Failed to copy link",
-        variant: "destructive",
+        description: 'Failed to copy link',
+        variant: "destructive"
       })
     }
   }
 
   const resetInvitationForm = () => {
-    setInvitationData({
-      email: "",
-      name: "",
-      program_id: ""
-    })
+    setInvitationData({ email: "", name: "", program_id: "" })
     setShowInvitationLink(false)
     setInvitationLink("")
     setCopied(false)
   }
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -395,14 +405,20 @@ export function MemberManagement() {
                 </div>
               ))}
             </div>
+          ) : !coachId ? (
+            <div className="text-center py-8">
+              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Coach Profile Not Found</h3>
+              <p className="text-gray-600 mb-4">Unable to load your coach profile. Please contact support.</p>
+            </div>
           ) : (
             <div className="text-center py-8">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No customers yet</h3>
-              <p className="text-gray-600 mb-4">Start by sending invitations to potential customers</p>
+              <p className="text-gray-600 mb-4">You haven't enrolled any customers in your programs yet.</p>
               <Button onClick={() => setIsInvitationDialogOpen(true)}>
                 <Mail className="h-4 w-4 mr-2" />
-                Send First Invitation
+                Send Your First Invitation
               </Button>
             </div>
           )}
