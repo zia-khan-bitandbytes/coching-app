@@ -1,15 +1,14 @@
 "use client"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, BookOpen, Users, Settings, CreditCard } from "lucide-react"
+import { LayoutDashboard, BookOpen, Users, Settings } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation"
 import { useDashboard } from "@/contexts/dashboard-context"
 
 const navigationItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "members", label: "Members", icon: Users },
-  { id: "roadmap-editor", label: "Roadmap Editor", icon: BookOpen },
-  { id: "payments", label: "Payments", icon: CreditCard },
+  { id: "programs", label: "Programs", icon: BookOpen },
+  { id: "customers", label: "Customers", icon: Users },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 
@@ -30,7 +29,15 @@ export function CoachSidebar() {
               variant={isActive ? "secondary" : "ghost"}
               className={cn("w-full justify-start gap-3 text-left", isActive && "bg-gray-100 text-gray-900")}
               onClick={() => {
-                setActiveSection(item.id)
+                if (item.id === "dashboard") {
+                  setActiveSection("overview")
+                } else if (item.id === "programs") {
+                  setActiveSection("programs")
+                } else if (item.id === "customers") {
+                  setActiveSection("customers")
+                } else {
+                  setActiveSection(item.id)
+                }
               }}
             >
               <Icon className="h-4 w-4" />

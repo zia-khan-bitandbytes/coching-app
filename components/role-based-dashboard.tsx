@@ -62,39 +62,17 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
     }
     
     // Render different sections based on activeSection
+    console.log('CoachDashboard: rendering section:', activeSection)
     switch (activeSection) {
       case 'dashboard':
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-                <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-              </div>
-            </div>
-            <CoachDashboard coachId={user.coach_id} />
-          </div>
-        )
+        return <CoachDashboard coachId={user.coach_id} />
       case 'members':
+        console.log('CoachDashboard: rendering MemberManagement component')
         return <MemberManagement />
       case 'roadmap-editor':
         return <RoadmapEditor coachId={user.coach_id} />
-      case 'payments':
-        return <PaymentManagement />
-      case 'settings':
-        return <CoachSettings />
       default:
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-                <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-              </div>
-            </div>
-            <CoachDashboard coachId={user.coach_id} />
-          </div>
-        )
+        return <CoachDashboard coachId={user.coach_id} />
     }
   }
 
