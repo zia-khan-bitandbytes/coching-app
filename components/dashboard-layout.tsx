@@ -12,9 +12,76 @@ import { useRouter } from "next/navigation"
 import { User, LogOut, ChevronDown } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { RoadmapProvider, useRoadmap } from "@/contexts/roadmap-context"
-import { DashboardProvider } from "@/contexts/dashboard-context"
+import { DashboardProvider, useDashboard } from "@/contexts/dashboard-context"
 import { CustomerRoadmap } from "@/components/customer-roadmap"
 import { CoachDashboard } from "@/components/coach-dashboard"
+import { RoadmapEditor } from "@/components/roadmap-editor"
+import { MemberManagement } from "@/components/member-management"
+
+interface CoachDashboardContentProps {
+  user: { id: string; email: string; name: string; role: string; coach_id?: string; business_name?: string }
+}
+
+function CoachDashboardContent({ user }: CoachDashboardContentProps) {
+  const { activeSection, setActiveSection } = useDashboard()
+
+  // Set default section when component mounts
+  useEffect(() => {
+    if (user.role === 'coach') {
+      setActiveSection("overview")
+    }
+  }, [user.role, setActiveSection])
+
+  if (activeSection === "overview" || activeSection === "dashboard") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
+            <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
+          </div>
+        </div>
+        <CoachDashboard coachId={user.coach_id || user.id} />
+      </div>
+    )
+  } else if (activeSection === "programs") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Program Roadmaps</h1>
+            <p className="text-gray-600 mt-1">Manage and view your coaching programs</p>
+          </div>
+        </div>
+        <RoadmapEditor coachId={user.coach_id || user.id} />
+      </div>
+    )
+  } else if (activeSection === "customers") {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Members</h1>
+            <p className="text-gray-600 mt-1">Manage your coaching members</p>
+          </div>
+        </div>
+        <MemberManagement coachId={user.coach_id || user.id} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
+          <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
+        </div>
+      </div>
+      <CoachDashboard coachId={user.coach_id || user.id} />
+    </div>
+  )
+}
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -53,7 +120,6 @@ function RoadmapDropdown() {
 
 export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLayoutProps) {
   const [user, setUser] = useState<{ id: string; email: string; name: string; role: string; coach_id?: string; business_name?: string } | null>(null)
-  const [currentView, setCurrentView] = useState<string>("dashboard")
   const router = useRouter()
 
   useEffect(() => {
@@ -61,29 +127,10 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
     if (userData) {
       const user = JSON.parse(userData)
       setUser(user)
-      // Set default view based on user role
-      if (user.role === 'coach') {
-        setCurrentView("dashboard")
-      } else if (user.role === 'customer') {
-        setCurrentView("roadmap")
-      }
     } else {
       router.push("/")
     }
   }, [router])
-
-  useEffect(() => {
-    // Listen for sidebar view changes
-    const handleSidebarViewChange = (event: CustomEvent) => {
-      setCurrentView(event.detail.view)
-    }
-
-    window.addEventListener('sidebarViewChanged', handleSidebarViewChange as EventListener)
-    
-    return () => {
-      window.removeEventListener('sidebarViewChanged', handleSidebarViewChange as EventListener)
-    }
-  }, [])
 
   const handleLogout = async () => {
     try {
@@ -131,35 +178,7 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
     }
     
     if (isCoach) {
-      if (currentView === "dashboard") {
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-                <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-              </div>
-            </div>
-            <CoachDashboard coachId={user.coach_id || user.id} />
-          </div>
-        )
-      } else if (currentView === "roadmap") {
-        return (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Program Roadmaps</h1>
-                <p className="text-gray-600 mt-1">Manage and view your coaching programs</p>
-              </div>
-            </div>
-            {/* Placeholder for coach roadmap view */}
-            <div className="text-center py-12">
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Program Roadmaps</h2>
-              <p className="text-gray-500">View and manage your coaching programs here</p>
-            </div>
-          </div>
-        )
-      }
+      return <CoachDashboardContent user={user} />
     }
     
     // Default dashboard view for other roles

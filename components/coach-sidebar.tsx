@@ -7,8 +7,8 @@ import { useDashboard } from "@/contexts/dashboard-context"
 
 const navigationItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "programs", label: "Programs", icon: BookOpen },
-  { id: "customers", label: "Customers", icon: Users },
+  { id: "programs", label: "Roadmap Editor", icon: BookOpen },
+  { id: "customers", label: "Members", icon: Users },
   { id: "settings", label: "Settings", icon: Settings },
 ]
 

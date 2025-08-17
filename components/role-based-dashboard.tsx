@@ -70,9 +70,19 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
         console.log('CoachDashboard: rendering MemberManagement component')
         return <MemberManagement />
       case 'roadmap-editor':
-        return <RoadmapEditor coachId={user.coach_id} />
+        return user.coach_id ? <RoadmapEditor coachId={user.coach_id} /> : (
+          <div className="text-center py-8">
+            <h2 className="text-2xl font-bold mb-2">Coach Profile Not Found</h2>
+            <p className="text-muted-foreground">Please contact support to set up your coach profile.</p>
+          </div>
+        )
       default:
-        return <CoachDashboard coachId={user.coach_id} />
+        return user.coach_id ? <CoachDashboard coachId={user.coach_id} /> : (
+          <div className="text-center py-8">
+            <h2 className="text-2xl font-bold mb-2">Coach Profile Not Found</h2>
+            <p className="text-muted-foreground">Please contact support to set up your coach profile.</p>
+          </div>
+        )
     }
   }
 

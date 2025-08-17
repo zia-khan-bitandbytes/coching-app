@@ -16,7 +16,14 @@ export default function RoadmapEditorPage() {
 
   return (
     <DashboardLayout isAdmin={true}>
-      <RoadmapEditor coachId={user?.coach_id} />
+      {user?.coach_id ? (
+        <RoadmapEditor coachId={user.coach_id} />
+      ) : (
+        <div className="text-center py-8">
+          <h2 className="text-2xl font-bold mb-2">Coach Profile Not Found</h2>
+          <p className="text-muted-foreground">Please contact support to set up your coach profile.</p>
+        </div>
+      )}
     </DashboardLayout>
   )
 }

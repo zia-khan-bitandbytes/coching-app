@@ -62,12 +62,25 @@ export function MemberManagement() {
     if (userData) {
       const user = JSON.parse(userData)
       console.log('MemberManagement: parsed user:', user)
-      if (user.coach_id) {
-        console.log('MemberManagement: setting coachId:', user.coach_id)
-        setCoachId(user.coach_id)
-        fetchCustomers(user.coach_id)
+      console.log('MemberManagement: user keys:', Object.keys(user))
+      console.log('MemberManagement: user.role:', user.role)
+      console.log('MemberManagement: user.id:', user.id)
+      console.log('MemberManagement: user.coach_id:', user.coach_id)
+      
+      // Check if user is a coach and has coach_id
+      if (user.role === 'coach') {
+        if (user.coach_id) {
+          console.log('MemberManagement: setting coachId:', user.coach_id)
+          setCoachId(user.coach_id)
+          fetchCustomers(user.coach_id)
+        } else {
+          console.log('MemberManagement: coach user but no coach_id found')
+          console.log('MemberManagement: trying to use user.id as coach_id:', user.id)
+          setCoachId(user.id)
+          fetchCustomers(user.id)
+        }
       } else {
-        console.log('MemberManagement: no coach_id found in user data')
+        console.log('MemberManagement: user is not a coach, role:', user.role)
         setIsLoading(false)
       }
     } else {
@@ -93,6 +106,23 @@ export function MemberManagement() {
       console.log('MemberManagement: customers response data:', customersData)
       if (customersData.success) {
         console.log('MemberManagement: setting customers:', customersData.customers)
+        console.log('=== COACH CUSTOMERS SUMMARY ===')
+        console.log(`Total customers: ${customersData.customers.length}`)
+        customersData.customers.forEach((customer: Customer, index: number) => {
+          console.log(`\n${index + 1}. ${customer.name} (${customer.email})`)
+          console.log(`   - Total programs: ${customer.total_programs}`)
+          console.log(`   - Active programs: ${customer.active_programs}`)
+          console.log(`   - Completed milestones: ${customer.completed_milestones}`)
+          console.log(`   - Total spent: $${customer.total_spent}`)
+          console.log(`   - Last activity: ${customer.last_activity}`)
+          if (customer.enrolled_programs.length > 0) {
+            console.log(`   - Enrolled programs:`)
+            customer.enrolled_programs.forEach((program: any) => {
+              console.log(`     * ${program.name} (${program.enrollment_status})`)
+            })
+          }
+        })
+        console.log('=== END SUMMARY ===')
         setCustomers(customersData.customers)
       } else {
         console.log('MemberManagement: API returned success: false, error:', customersData.error)

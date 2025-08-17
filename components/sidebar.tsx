@@ -3,22 +3,12 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { Map, BookOpen, HelpCircle, Users, BarChart3 } from "lucide-react"
+import { Map, BookOpen, HelpCircle, Users, BarChart3, LayoutDashboard } from "lucide-react"
 
 const getNavigationItems = (userRole?: string) => {
   if (userRole === 'customer') {
     return [
       { id: "roadmap", label: "Roadmap", icon: Map, active: true },
-      { id: "resources", label: "Resources", icon: BookOpen, active: false },
-      { id: "support", label: "Support", icon: HelpCircle, active: false },
-      { id: "community", label: "A Community", icon: Users, active: false },
-    ]
-  }
-  
-  if (userRole === 'coach') {
-    return [
-      { id: "dashboard", label: "Dashboard", icon: BarChart3, active: true },
-      { id: "roadmap", label: "Roadmap", icon: Map, active: false },
       { id: "resources", label: "Resources", icon: BookOpen, active: false },
       { id: "support", label: "Support", icon: HelpCircle, active: false },
       { id: "community", label: "A Community", icon: Users, active: false },
