@@ -6,15 +6,18 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useRouter } from "next/navigation"
 import { showSuccessToast, showErrorToast } from "@/lib/toast"
+import { UserRole, getRoleDisplayName, getRoleDescription } from "@/lib/auth-client"
 
 export function SignupForm() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    role: "customer" as UserRole
   })
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -27,7 +30,12 @@ export function SignupForm() {
     }))
   }
 
-
+  const handleRoleChange = (value: string) => {
+    setFormData(prev => ({
+      ...prev,
+      role: value as UserRole
+    }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,7 +65,7 @@ export function SignupForm() {
           name: formData.name,
           email: formData.email,
           password: formData.password,
-          role: "coach"
+          role: formData.role
         })
       })
 
@@ -67,8 +75,9 @@ export function SignupForm() {
         throw new Error(data.error || 'Signup failed')
       }
 
-      showSuccessToast(`Coach account created successfully! Please sign in to access your dashboard.`)
-      router.push('/auth')
+      const roleDisplayName = getRoleDisplayName(formData.role)
+      showSuccessToast(`${roleDisplayName} account created successfully! Welcome to your dashboard.`)
+      router.push('/dashboard')
     } catch (error) {
       showErrorToast(error instanceof Error ? error.message : 'Signup failed')
     } finally {
@@ -108,7 +117,28 @@ export function SignupForm() {
               required
             />
           </div>
-
+          <div className="space-y-2">
+            <Label htmlFor="role">Role</Label>
+            <Select value={formData.role} onValueChange={handleRoleChange}>
+              <SelectTrigger id="role">
+                <SelectValue placeholder="Select your role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="customer">
+                  <div className="flex flex-col">
+                    <div className="font-medium">{getRoleDisplayName('customer')}</div>
+                    <div className="text-sm text-muted-foreground">{getRoleDescription('customer')}</div>
+                  </div>
+                </SelectItem>
+                <SelectItem value="coach">
+                  <div className="flex flex-col">
+                    <div className="font-medium">{getRoleDisplayName('coach')}</div>
+                    <div className="text-sm text-muted-foreground">{getRoleDescription('coach')}</div>
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
             <Input
@@ -134,7 +164,7 @@ export function SignupForm() {
             />
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Creating account..." : "Create Coach Account"}
+            {isLoading ? "Creating account..." : `Create ${getRoleDisplayName(formData.role)} Account`}
           </Button>
         </form>
       </CardContent>

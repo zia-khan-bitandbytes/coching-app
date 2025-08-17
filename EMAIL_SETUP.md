@@ -130,5 +130,3 @@ You can customize:
 
 For issues or questions, check the application logs and verify your configuration settings.
 
-
-
