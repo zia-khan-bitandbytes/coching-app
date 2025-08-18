@@ -158,6 +158,24 @@ CREATE INDEX IF NOT EXISTS idx_invitations_token ON invitations(token);
 CREATE INDEX IF NOT EXISTS idx_invitations_coach_id ON invitations(coach_id);
 CREATE INDEX IF NOT EXISTS idx_invitations_program_id ON invitations(program_id);
 
+-- Add task_files table for storing uploaded files
+CREATE TABLE IF NOT EXISTS task_files (
+    id SERIAL PRIMARY KEY,
+    task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+    milestone_id INTEGER REFERENCES milestones(id) ON DELETE CASCADE,
+    file_name VARCHAR(255) NOT NULL,
+    original_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(500) NOT NULL,
+    file_size BIGINT NOT NULL,
+    file_type VARCHAR(100),
+    uploaded_by VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Add index for better performance
+CREATE INDEX IF NOT EXISTS idx_task_files_task_id ON task_files(task_id);
+CREATE INDEX IF NOT EXISTS idx_task_files_milestone_id ON task_files(milestone_id);
+
 -- Insert sample super admin user
 INSERT INTO users (email, name, password, role) VALUES
   ('admin@coachingapp.com', 'Super Admin', '$2b$10$rQJ8N7vK9mX2pL3qR5tY8uI1oP9aB6cD7eF8gH9iJ0kL1mN2oP3qR4sT5uV6wX7yZ', 'super_admin')

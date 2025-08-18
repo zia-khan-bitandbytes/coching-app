@@ -10,7 +10,9 @@ export default function RoadmapEditorPage() {
   useEffect(() => {
     const userData = localStorage.getItem("user")
     if (userData) {
-      setUser(JSON.parse(userData))
+      const parsedUser = JSON.parse(userData)
+      console.log('User data from localStorage:', parsedUser)
+      setUser(parsedUser)
     }
   }, [])
 

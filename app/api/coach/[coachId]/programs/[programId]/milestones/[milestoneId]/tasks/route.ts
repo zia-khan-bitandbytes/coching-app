@@ -39,17 +39,37 @@ export async function GET(
       ORDER BY order_index
     `, [milestoneId])
 
-    const tasks = tasksResult.rows.map(row => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      completed: row.completed,
-      order_index: parseInt(row.order_index),
-      milestone_id: parseInt(milestoneId),
-      requiresUpload: row.requires_upload,
-      created_at: row.created_at,
-      completed_at: row.completed_at
-    }))
+    const tasks = tasksResult.rows.map(row => {
+      // Parse files from description if they exist
+      let files = []
+      let cleanDescription = row.description
+      
+      if (row.description && row.description.includes('[FILES:')) {
+        try {
+          const filesMatch = row.description.match(/\[FILES:(.*?)\]$/)
+          if (filesMatch) {
+            files = JSON.parse(filesMatch[1])
+            // Remove the files section from description
+            cleanDescription = row.description.replace(/\n\n\[FILES:.*?\]$/, '')
+          }
+        } catch (error) {
+          console.error('Error parsing files from description:', error)
+        }
+      }
+      
+      return {
+        id: row.id,
+        title: row.title,
+        description: cleanDescription,
+        completed: row.completed,
+        order_index: parseInt(row.order_index),
+        milestone_id: parseInt(milestoneId),
+        requiresUpload: row.requires_upload,
+        created_at: row.created_at,
+        completed_at: row.completed_at,
+        files: files
+      }
+    })
 
     return NextResponse.json({
       success: true,
@@ -70,9 +90,13 @@ export async function POST(
 ) {
   try {
     const { coachId, programId, milestoneId } = await params
-    const { title, description, requiresUpload } = await request.json()
+    const { title, description, requiresUpload, uploadedFiles } = await request.json()
+    
+    console.log('Creating task with params:', { coachId, programId, milestoneId, title, description, requiresUpload })
 
     // Verify the program belongs to the coach and milestone belongs to program
+    console.log('Verifying with params:', { milestoneId, programId, coachId })
+    
     const verificationResult = await pool.query(`
       SELECT m.id 
       FROM milestones m
@@ -80,7 +104,21 @@ export async function POST(
       WHERE m.id = $1 AND cp.id = $2 AND cp.coach_id = $3
     `, [milestoneId, programId, coachId])
 
+    console.log('Verification result:', verificationResult.rows)
+
     if (verificationResult.rows.length === 0) {
+      console.log('Milestone not found or access denied')
+      
+      // Let's check what milestones exist for this program
+      const milestoneCheckResult = await pool.query(`
+        SELECT m.id, m.title, cp.coach_id
+        FROM milestones m
+        JOIN coaching_programs cp ON m.program_id = cp.id
+        WHERE cp.id = $1
+      `, [programId])
+      
+      console.log('Available milestones for this program:', milestoneCheckResult.rows)
+      
       return NextResponse.json(
         { success: false, error: 'Milestone not found or access denied' },
         { status: 404 }
@@ -96,28 +134,81 @@ export async function POST(
     
     const nextOrderIndex = maxOrderResult.rows[0].max_order + 1
 
-    // Create new task with auto-incremented order_index
-    const result = await pool.query(`
-      INSERT INTO tasks (milestone_id, title, description, order_index, requires_upload)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, title, description, completed, order_index, requires_upload, created_at
-    `, [milestoneId, title, description, nextOrderIndex, requiresUpload || false])
+    // Start a transaction to ensure data consistency
+    const client = await pool.connect()
+    
+    try {
+      await client.query('BEGIN')
 
-    const newTask = result.rows[0]
+      // If there are uploaded files, store them in the description field
+      let taskFiles = []
+      let taskDescription = description
+      
+      if (uploadedFiles && uploadedFiles.length > 0) {
+        console.log('Processing uploaded files:', uploadedFiles)
+        
+        // Create file objects for storage
+        taskFiles = uploadedFiles.map((file: any, index: number) => {
+          console.log('Processing file:', file)
+          console.log('File URL:', file.url)
+          const fileObj = {
+            id: Date.now() + index,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            url: file.url,
+            uploadedAt: new Date().toISOString()
+          }
+          console.log('Created file object:', fileObj)
+          return fileObj
+        })
+        
+        // Store files info in description as JSON
+        const filesInfo = JSON.stringify(taskFiles)
+        taskDescription = `${description}\n\n[FILES:${filesInfo}]`
+        console.log('Storing files in description:', taskDescription)
+      }
 
-    return NextResponse.json({
-      success: true,
-      task: {
+      // Create new task with auto-incremented order_index
+      console.log('Creating task with values:', { milestoneId, title, taskDescription, nextOrderIndex, requiresUpload })
+      
+      const result = await client.query(`
+        INSERT INTO tasks (milestone_id, title, description, order_index, requires_upload)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING id, title, description, completed, order_index, requires_upload, created_at
+      `, [milestoneId, title, taskDescription, nextOrderIndex, requiresUpload || false])
+
+      const newTask = result.rows[0]
+      console.log('Task created successfully:', newTask)
+
+      await client.query('COMMIT')
+      console.log('Transaction committed successfully')
+
+      const responseTask = {
         id: newTask.id,
         title: newTask.title,
-        description: newTask.description,
+        description: description, // Use the original description, not the one with files
         completed: newTask.completed,
         order_index: parseInt(newTask.order_index),
         milestone_id: parseInt(milestoneId),
         requiresUpload: newTask.requires_upload,
-        created_at: newTask.created_at
+        created_at: newTask.created_at,
+        files: taskFiles
       }
-    })
+      
+      console.log('Returning task:', responseTask)
+
+      return NextResponse.json({
+        success: true,
+        task: responseTask
+      })
+    } catch (error) {
+      console.error('Transaction error:', error)
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   } catch (error) {
     console.error('Error creating task:', error)
     return NextResponse.json(

@@ -1,5 +1,14 @@
 // Shared types for the coaching app
 
+export interface TaskFile {
+  id: number
+  name: string
+  size: number
+  type: string
+  url: string
+  uploadedAt: string
+}
+
 export interface Task {
   id: number
   title: string
@@ -11,6 +20,7 @@ export interface Task {
   completed_at?: string
   status?: "completed" | "in-progress" | "locked"
   requiresUpload?: boolean
+  files?: TaskFile[]
 }
 
 export interface Milestone {

@@ -6,7 +6,7 @@ import { User } from "lucide-react"
 interface Milestone {
   id: number
   title: string
-  status: "completed" | "in-progress" | "blocked"
+  status: "completed" | "in-progress" | "blocked" | "locked"
 }
 
 interface RoadmapProgressProps {
