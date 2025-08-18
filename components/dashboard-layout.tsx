@@ -47,12 +47,6 @@ function CoachDashboardContent({ user }: CoachDashboardContentProps) {
   } else if (activeSection === "programs") {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Program Roadmaps</h1>
-            <p className="text-gray-600 mt-1">Manage and view your coaching programs</p>
-          </div>
-        </div>
         <RoadmapEditor coachId={user.coach_id || user.id} />
       </div>
     )
@@ -65,7 +59,7 @@ function CoachDashboardContent({ user }: CoachDashboardContentProps) {
             <p className="text-gray-600 mt-1">Manage your coaching members</p>
           </div>
         </div>
-        <MemberManagement coachId={user.coach_id || user.id} />
+        <MemberManagement />
       </div>
     )
   }

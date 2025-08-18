@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { CheckCircle, Lock, Upload, Trash2, Edit3, Check, X } from "lucide-react"
+import { CheckCircle, Lock, Trash2, Edit3, Check, X, File, ExternalLink, Download } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Task } from "@/lib/types"
 
@@ -24,8 +24,7 @@ interface TaskItemProps {
 }
 
 export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milestoneId, allowEdit = true, allTasks = [] }: TaskItemProps) {
-  const [file, setFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
+  // Upload functionality removed - only customers can upload files
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
@@ -34,6 +33,14 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
   const [isUpdating, setIsUpdating] = useState(false)
   const [isCompleting, setIsCompleting] = useState(false)
   const [taskStatus, setTaskStatus] = useState(task.status || (task.completed ? "completed" : "in-progress"))
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
 
   // Check if all previous tasks are completed
   const canCompleteTask = () => {
@@ -54,7 +61,7 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
         return <CheckCircle className="h-4 w-4 text-green-600" />
       case "in-progress":
         return null
-      case "blocked":
+      case "locked":
         return <Lock className="h-4 w-4 text-gray-400" />
       default:
         return null
@@ -67,15 +74,7 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
       return
     }
 
-    // Check if task requires upload but no file is uploaded
-    if (task.requiresUpload && !file && completed) {
-      toast({
-        title: "Upload Required",
-        description: "Please upload the required document before marking this task as complete.",
-        variant: "destructive",
-      })
-      return
-    }
+    // Upload functionality removed - only customers can upload files
 
     // Check if previous tasks are completed
     if (!canCompleteTask() && completed) {
@@ -111,7 +110,7 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
           const updatedTask = {
             ...task,
             completed: data.task.completed,
-            status: newStatus as "completed" | "in-progress" | "blocked"
+            status: newStatus as "completed" | "in-progress" | "locked"
           }
           onUpdate?.(task.id, updatedTask)
           
@@ -138,20 +137,7 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
     }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0]
-    if (selectedFile) {
-      setFile(selectedFile)
-      setIsUploading(true)
-
-      // Simulate upload
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      setIsUploading(false)
-      // Here you would typically send the file to your backend
-      console.log("File uploaded:", selectedFile.name)
-    }
-  }
+  // Upload functionality removed - only customers can upload files
 
   const handleEdit = () => {
     setIsEditing(true)
@@ -289,25 +275,16 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
             checked={taskStatus === "completed"}
             onCheckedChange={(checked) => handleTaskCompletion(checked as boolean)}
             disabled={isCompleting || 
-              (task.requiresUpload && !file && taskStatus !== "completed") || 
               (!canCompleteTask() && taskStatus !== "completed")
             }
             className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
             title={
-              task.requiresUpload && !file && taskStatus !== "completed" 
-                ? "Upload required document first" 
-                : !canCompleteTask() && taskStatus !== "completed"
+              !canCompleteTask() && taskStatus !== "completed"
                 ? "Complete previous tasks first"
                 : ""
             }
           />
-          {task.requiresUpload && !file && taskStatus !== "completed" && (
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full" title="Document upload required"></div>
-          )}
-          {!canCompleteTask() && taskStatus !== "completed" && !task.requiresUpload && (
-            <div className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" title="Complete previous tasks first"></div>
-          )}
-          {!canCompleteTask() && taskStatus !== "completed" && task.requiresUpload && !file && (
+          {!canCompleteTask() && taskStatus !== "completed" && (
             <div className="absolute -top-1 -right-1 w-2 h-2 bg-orange-500 rounded-full" title="Complete previous tasks first"></div>
           )}
         </div>
@@ -352,6 +329,140 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
             {task.description && (
               <p className="text-xs text-gray-500 mt-1">{task.description}</p>
             )}
+            
+            {/* Display uploaded files */}
+            {task.files && task.files.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs font-medium text-gray-600">Uploaded Files:</p>
+                <div className="space-y-1">
+                  {task.files.map((file: any, index: number) => (
+                    <div key={index} className="flex items-center gap-2 p-1 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 transition-colors group">
+                      <File className="h-3 w-3 text-blue-500" />
+                      <a
+                        href={file.url}
+                        download={file.name}
+                        className="text-xs text-blue-600 hover:text-blue-800 underline truncate max-w-32 cursor-pointer flex-1"
+                        title={`Click to download ${file.name}`}
+                        onClick={async (e) => {
+                          e.preventDefault()
+                          console.log('Downloading file:', file)
+                          console.log('File URL:', file.url)
+                          console.log('File name:', file.name)
+                          
+                          if (!file.url) {
+                            toast({
+                              title: "Error",
+                              description: "File URL is not available",
+                              variant: "destructive"
+                            })
+                            return
+                          }
+                          
+                          try {
+                            // Fetch the file
+                            const response = await fetch(file.url)
+                            if (!response.ok) {
+                              throw new Error(`HTTP error! status: ${response.status}`)
+                            }
+                            
+                            // Get the file blob
+                            const blob = await response.blob()
+                            
+                            // Create a download link
+                            const url = window.URL.createObjectURL(blob)
+                            const link = document.createElement('a')
+                            link.href = url
+                            link.download = file.name
+                            document.body.appendChild(link)
+                            link.click()
+                            document.body.removeChild(link)
+                            
+                            // Clean up the URL object
+                            window.URL.revokeObjectURL(url)
+                            
+                            toast({
+                              title: "Download started",
+                              description: `${file.name} is being downloaded`,
+                            })
+                          } catch (error) {
+                            console.error('Download error:', error)
+                            toast({
+                              title: "Download failed",
+                              description: "Failed to download the file. Please try again.",
+                              variant: "destructive"
+                            })
+                          }
+                        }}
+                      >
+                        {file.name}
+                      </a>
+                      <span className="text-xs text-gray-500">
+                        ({formatFileSize(file.size)})
+                      </span>
+                      <button
+                                                                          onClick={async () => {
+                                                    console.log('Downloading file via button:', file.url)
+                                                    
+                                                    if (!file.url) {
+                                                      toast({
+                                                        title: "Error",
+                                                        description: "File URL is not available",
+                                                        variant: "destructive"
+                                                      })
+                                                      return
+                                                    }
+                                                    
+                                                    try {
+                                                      // Fetch the file
+                                                      const response = await fetch(file.url)
+                                                      if (!response.ok) {
+                                                        throw new Error(`HTTP error! status: ${response.status}`)
+                                                      }
+                                                      
+                                                      // Get the file blob
+                                                      const blob = await response.blob()
+                                                      
+                                                      // Create a download link
+                                                      const url = window.URL.createObjectURL(blob)
+                                                      const link = document.createElement('a')
+                                                      link.href = url
+                                                      link.download = file.name
+                                                      document.body.appendChild(link)
+                                                      link.click()
+                                                      document.body.removeChild(link)
+                                                      
+                                                      // Clean up the URL object
+                                                      window.URL.revokeObjectURL(url)
+                                                      
+                                                      toast({
+                                                        title: "Download started",
+                                                        description: `${file.name} is being downloaded`,
+                                                      })
+                                                    } catch (error) {
+                                                      console.error('Download error:', error)
+                                                      toast({
+                                                        title: "Download failed",
+                                                        description: "Failed to download the file. Please try again.",
+                                                        variant: "destructive"
+                                                      })
+                                                    }
+                                                  }}
+                        className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-200 rounded transition-colors"
+                        title={`Download ${file.name}`}
+                      >
+                        <Download className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {/* Debug info */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-1 text-xs text-gray-400">
+                Files: {task.files ? task.files.length : 0}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -382,46 +493,19 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
           </>
         ) : (
           <>
-            {task.requiresUpload && taskStatus === "in-progress" && (
-              <div className="flex items-center gap-2">
-                <Input
-                  type="file"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id={`file-${task.id}`}
-                  accept=".pdf,.doc,.docx,.txt"
-                />
-                {file && (
-                  <span className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded border border-gray-200 max-w-32 truncate" title={file.name}>
-                    {file.name}
-                  </span>
-                )}
-                <button
-                  onClick={() => document.getElementById(`file-${task.id}`)?.click()}
-                  disabled={isUploading}
-                  className="p-1.5 text-yellow-600 hover:text-white hover:bg-yellow-600 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm transition-all duration-200 disabled:opacity-50"
-                  title="Upload file"
-                >
-                  {isUploading ? (
-                    <div className="h-4 w-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            )}
+            {/* Upload functionality removed from coach side - only customers can upload files */}
 
-            {task.status === "blocked" && (
+            {task.status === "locked" && (
               <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                Blocked
+                Locked
               </Badge>
             )}
 
             {taskStatus === "completed" && <Badge className="bg-green-100 text-green-700">Done</Badge>}
             
-            {taskStatus === "blocked" && (
+            {taskStatus === "locked" && (
               <Badge variant="secondary" className="bg-gray-100 text-gray-600">
-                Blocked
+                Locked
               </Badge>
             )}
             

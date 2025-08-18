@@ -53,7 +53,8 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
         const formattedTasks = data.tasks.map((task: any) => ({
           ...task,
           status: task.completed ? "completed" : "in-progress",
-          requiresUpload: task.requiresUpload || false
+          requiresUpload: task.requiresUpload || false,
+          files: task.files || []
         }))
         setTasks(formattedTasks)
       }
@@ -65,12 +66,16 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
   }
 
   const handleTaskCreated = (newTask: any) => {
+    console.log('Handling task created:', newTask)
     // Add the new task to the list with proper formatting
     const formattedTask = {
       ...newTask,
       status: newTask.completed ? "completed" : "in-progress",
-      requiresUpload: newTask.requiresUpload || false
+      requiresUpload: newTask.requiresUpload || false,
+      files: newTask.files || []
     }
+    console.log('Formatted task:', formattedTask)
+    console.log('Task files:', formattedTask.files)
     setTasks(prev => [...prev, formattedTask])
   }
 
@@ -89,7 +94,8 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
       task.id === taskId ? { 
         ...task, 
         ...updatedTask,
-        requiresUpload: updatedTask.requiresUpload !== undefined ? updatedTask.requiresUpload : task.requiresUpload
+        requiresUpload: updatedTask.requiresUpload !== undefined ? updatedTask.requiresUpload : task.requiresUpload,
+        files: updatedTask.files || task.files || []
       } : task
     )
     setTasks(updatedTasks)
@@ -325,10 +331,11 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                 {onEdit && (
                   <button
                     onClick={handleEdit}
-                    className="p-2.5 text-blue-600 hover:text-white hover:bg-blue-600 bg-blue-50 border border-blue-200 rounded-lg shadow-sm transition-all duration-200"
+                    className="px-3 py-2 text-blue-600 bg-blue-50 border border-blue-200 hover:text-blue-700 hover:bg-blue-100 hover:border-blue-300 rounded-lg shadow-sm flex items-center gap-1"
                     title="Edit milestone"
                   >
-                    <Edit3 className="h-5 w-5" />
+                    <Edit3 className="h-4 w-4" />
+                    Edit
                   </button>
                 )}
                 {coachId && programId && allowTaskCreation && (
@@ -343,10 +350,11 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                 {onDelete && (
                   <button
                     onClick={handleDelete}
-                    className="p-2.5 text-red-600 hover:text-white hover:bg-red-600 bg-red-50 border border-red-200 rounded-lg shadow-sm transition-all duration-200"
+                    className="px-3 py-2 text-red-600 bg-red-50 border border-red-200 hover:text-red-700 hover:bg-red-100 hover:border-red-300 rounded-lg shadow-sm flex items-center gap-1"
                     title="Delete milestone"
                   >
-                    <Trash2 className="h-5 w-5" />
+                    <Trash2 className="h-4 w-4" />
+                    Delete
                   </button>
                 )}
                 {(tasks.length > 0 || (coachId && programId)) && (
@@ -427,7 +435,8 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                         description: task.description,
                         status: task.status || (task.completed ? "completed" : "in-progress"),
                         requiresUpload: task.requiresUpload,
-                        order_index: task.order_index
+                        order_index: task.order_index,
+                        files: task.files || []
                       }}
                       onDelete={handleTaskDeleted}
                       onUpdate={handleTaskUpdated}

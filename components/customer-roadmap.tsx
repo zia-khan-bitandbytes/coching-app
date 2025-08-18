@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Input } from "@/components/ui/input"
 import { 
   CheckCircle, 
   Clock, 
@@ -20,7 +21,10 @@ import {
   ChevronRight,
   ChevronDown,
   Sparkles,
-  Users
+  Users,
+  File,
+  Download,
+  Upload
 } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useToast } from "@/hooks/use-toast"
@@ -45,6 +49,14 @@ interface Task {
   requiresUpload: boolean
   created_at?: string
   completed_at?: string
+  files?: Array<{
+    id: number
+    name: string
+    size: number
+    type: string
+    url: string
+    uploadedAt: string
+  }>
 }
 
 interface Milestone {
@@ -474,6 +486,14 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
 
   const getMilestoneIcon = (index: number) => {
     return milestoneIcons[index % milestoneIcons.length]
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
   // Calculate overall progress from programsWithMilestones if available, otherwise fall back to milestones
@@ -1032,9 +1052,232 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                         <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
                                       )}
                                     </motion.div>
-                                    <span className={`flex-1 ${task.completed ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
-                                      {task.title}
-                                    </span>
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`${task.completed ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
+                                          {task.title}
+                                        </span>
+                                        {task.requiresUpload && !task.completed && (
+                                          <Upload className="h-3 w-3 text-yellow-500" title="Upload required" />
+                                        )}
+                                      </div>
+                                      
+                                      {/* Upload functionality for tasks that require upload */}
+                                      {task.requiresUpload && !task.completed && (
+                                        <div className="mt-2 flex items-center gap-2">
+                                          <Input
+                                            type="file"
+                                            onChange={async (e) => {
+                                              const selectedFile = e.target.files?.[0]
+                                              if (selectedFile) {
+                                                try {
+                                                  // Create FormData for file upload
+                                                  const formData = new FormData()
+                                                  formData.append('file', selectedFile)
+                                                  formData.append('milestoneId', milestone.id.toString())
+                                                  formData.append('taskId', task.id.toString())
+                                                  formData.append('programId', program.id)
+                                                  
+                                                  const response = await fetch(`/api/customer/${customerId}/upload`, {
+                                                    method: 'POST',
+                                                    body: formData
+                                                  })
+                                                  
+                                                  if (response.ok) {
+                                                    const data = await response.json()
+                                                    console.log('File uploaded successfully:', data)
+                                                    
+                                                    toast({
+                                                      title: "File uploaded successfully",
+                                                      description: `${selectedFile.name} has been uploaded successfully.`,
+                                                    })
+                                                    
+                                                    // Refresh the data to show the uploaded file
+                                                    fetchCustomerData()
+                                                  } else {
+                                                    toast({
+                                                      title: "Upload failed",
+                                                      description: "Failed to upload file. Please try again.",
+                                                      variant: "destructive"
+                                                    })
+                                                  }
+                                                } catch (error) {
+                                                  console.error('Error uploading file:', error)
+                                                  toast({
+                                                    title: "Upload failed",
+                                                    description: "Failed to upload file. Please try again.",
+                                                    variant: "destructive"
+                                                  })
+                                                }
+                                              }
+                                            }}
+                                            className="hidden"
+                                            id={`customer-file-${task.id}`}
+                                            accept=".pdf,.doc,.docx,.txt"
+                                          />
+                                          <button
+                                            onClick={() => document.getElementById(`customer-file-${task.id}`)?.click()}
+                                            className="p-1.5 text-yellow-600 hover:text-white hover:bg-yellow-600 bg-yellow-50 border border-yellow-200 rounded-lg shadow-sm transition-all duration-200"
+                                            title="Upload required file"
+                                          >
+                                            <Upload className="h-4 w-4" />
+                                          </button>
+                                          <span className="text-xs text-gray-500">Upload required</span>
+                                          <button
+                                            onClick={async () => {
+                                              try {
+                                                await handleTaskComplete(task.id, milestone.id)
+                                                toast({
+                                                  title: "Task completed",
+                                                  description: "Task has been marked as complete.",
+                                                })
+                                              } catch (error) {
+                                                console.error('Error completing task:', error)
+                                                toast({
+                                                  title: "Error",
+                                                  description: "Failed to complete task. Please try again.",
+                                                  variant: "destructive"
+                                                })
+                                              }
+                                            }}
+                                            className="p-1.5 text-green-600 hover:text-white hover:bg-green-600 bg-green-50 border border-green-200 rounded-lg shadow-sm transition-all duration-200"
+                                            title="Mark task as complete"
+                                          >
+                                            <CheckCircle className="h-4 w-4" />
+                                          </button>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Display uploaded files */}
+                                      {task.files && task.files.length > 0 && (
+                                                                                <div className="mt-2 space-y-1">
+                                          <p className="text-xs font-medium text-gray-600">
+                                            {task.requiresUpload ? 'Your uploaded files:' : 'Uploaded Files:'}
+                                          </p>
+                                          <div className="space-y-1">
+                                            {task.files.map((file: any, fileIndex: number) => (
+                                              <div key={fileIndex} className="flex items-center gap-2 p-1 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 transition-colors group">
+                                                <File className="h-3 w-3 text-blue-500" />
+                                                <a
+                                                  href={file.url}
+                                                  download={file.name}
+                                                  className="text-xs text-blue-600 hover:text-blue-800 underline truncate max-w-32 cursor-pointer flex-1"
+                                                  title={`Click to download ${file.name}`}
+                                                  onClick={async (e) => {
+                                                    e.preventDefault()
+                                                    console.log('Downloading file:', file)
+                                                    console.log('File URL:', file.url)
+                                                    console.log('File name:', file.name)
+                                                    
+                                                    if (!file.url) {
+                                                      toast({
+                                                        title: "Error",
+                                                        description: "File URL is not available",
+                                                        variant: "destructive"
+                                                      })
+                                                      return
+                                                    }
+                                                    
+                                                    try {
+                                                      // Fetch the file
+                                                      const response = await fetch(file.url)
+                                                      if (!response.ok) {
+                                                        throw new Error(`HTTP error! status: ${response.status}`)
+                                                      }
+                                                      
+                                                      // Get the file blob
+                                                      const blob = await response.blob()
+                                                      
+                                                      // Create a download link
+                                                      const url = window.URL.createObjectURL(blob)
+                                                      const link = document.createElement('a')
+                                                      link.href = url
+                                                      link.download = file.name
+                                                      document.body.appendChild(link)
+                                                      link.click()
+                                                      document.body.removeChild(link)
+                                                      
+                                                      // Clean up the URL object
+                                                      window.URL.revokeObjectURL(url)
+                                                      
+                                                      toast({
+                                                        title: "Download started",
+                                                        description: `${file.name} is being downloaded`,
+                                                      })
+                                                    } catch (error) {
+                                                      console.error('Download error:', error)
+                                                      toast({
+                                                        title: "Download failed",
+                                                        description: "Failed to download the file. Please try again.",
+                                                        variant: "destructive"
+                                                      })
+                                                    }
+                                                  }}
+                                                >
+                                                  {file.name}
+                                                </a>
+                                                <span className="text-xs text-gray-500">
+                                                  ({formatFileSize(file.size)})
+                                                </span>
+                                                                                                 <button
+                                                   onClick={async () => {
+                                                     console.log('Downloading file via button:', file.url)
+                                                     
+                                                     if (!file.url) {
+                                                       toast({
+                                                         title: "Error",
+                                                         description: "File URL is not available",
+                                                         variant: "destructive"
+                                                       })
+                                                       return
+                                                     }
+                                                     
+                                                     try {
+                                                       // Fetch the file
+                                                       const response = await fetch(file.url)
+                                                       if (!response.ok) {
+                                                         throw new Error(`HTTP error! status: ${response.status}`)
+                                                       }
+                                                       
+                                                       // Get the file blob
+                                                       const blob = await response.blob()
+                                                       
+                                                       // Create a download link
+                                                       const url = window.URL.createObjectURL(blob)
+                                                       const link = document.createElement('a')
+                                                       link.href = url
+                                                       link.download = file.name
+                                                       document.body.appendChild(link)
+                                                       link.click()
+                                                       document.body.removeChild(link)
+                                                       
+                                                       // Clean up the URL object
+                                                       window.URL.revokeObjectURL(url)
+                                                       
+                                                       toast({
+                                                         title: "Download started",
+                                                         description: `${file.name} is being downloaded`,
+                                                       })
+                                                     } catch (error) {
+                                                       console.error('Download error:', error)
+                                                       toast({
+                                                         title: "Download failed",
+                                                         description: "Failed to download the file. Please try again.",
+                                                         variant: "destructive"
+                                                       })
+                                                     }
+                                                   }}
+                                                  className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-200 rounded transition-colors"
+                                                  title={`Download ${file.name}`}
+                                                >
+                                                  <Download className="h-3 w-3" />
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
                                     {task.requiresUpload && (
                                       <motion.div
                                         initial={{ scale: 0 }}

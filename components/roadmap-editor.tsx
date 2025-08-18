@@ -51,6 +51,7 @@ interface RoadmapEditorProps {
 }
 
 export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
+  console.log('RoadmapEditor received coachId:', coachId)
   const [programs, setPrograms] = useState<ProgramWithMilestones[]>([])
   const [expandedPrograms, setExpandedPrograms] = useState<Set<number>>(new Set())
   const [expandedMilestones, setExpandedMilestones] = useState<Set<number>>(new Set())
@@ -58,6 +59,12 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
   const [editingProgram, setEditingProgram] = useState<Program | null>(null)
   const [editingMilestone, setEditingMilestone] = useState<MilestoneWithStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAddMilestoneModalOpen, setIsAddMilestoneModalOpen] = useState(false)
+  const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null)
+  const [modalMilestoneForm, setModalMilestoneForm] = useState({
+    title: '',
+    description: ''
+  })
 
   // Form states
   const [programForm, setProgramForm] = useState({
@@ -172,6 +179,16 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
   }
 
   const handleAddProgram = async () => {
+    // Ensure we have a coach id
+    if (!coachId) {
+      toast({
+        title: "Error",
+        description: "Coach ID not found. Please reload and try again.",
+        variant: "destructive"
+      })
+      return
+    }
+
     // Validate required fields
     if (!programForm.name.trim() || !programForm.description.trim() || !programForm.price || !programForm.duration_weeks) {
       toast({
@@ -187,6 +204,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          coach_id: coachId,
           name: programForm.name.trim(),
           description: programForm.description.trim(),
           price: parseFloat(programForm.price),
@@ -204,7 +222,20 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
           setIsAddProgramOpen(false)
           setProgramForm({ name: '', description: '', price: '', duration_weeks: '' })
           fetchPrograms()
+        } else {
+          toast({
+            title: "Error",
+            description: data.error || "Failed to create program",
+            variant: "destructive"
+          })
         }
+      } else {
+        const errorData = await response.json().catch(() => null)
+        toast({
+          title: "Error",
+          description: (errorData && errorData.error) || "Failed to create program",
+          variant: "destructive"
+        })
       }
     } catch (error) {
       console.error('Error creating program:', error)
@@ -319,13 +350,81 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
     }
   }
 
+  const handleModalAddMilestone = async () => {
+    if (!selectedProgramId) return
+
+    const { title, description } = modalMilestoneForm
+    
+    // Validate required fields
+    if (!title.trim() || !description.trim()) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/coach/1/programs/${selectedProgramId}/milestones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          description: description.trim()
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          toast({
+            title: "Success",
+            description: "Milestone created successfully"
+          })
+          
+          // Reset modal form and close modal
+          setModalMilestoneForm({ title: '', description: '' })
+          setIsAddMilestoneModalOpen(false)
+          setSelectedProgramId(null)
+          
+          // Refresh milestones for this program
+          await fetchMilestones(selectedProgramId)
+        }
+      } else {
+        const errorData = await response.json()
+        toast({
+          title: "Error",
+          description: errorData.error || "Failed to create milestone",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error creating milestone:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create milestone",
+        variant: "destructive"
+      })
+    }
+  }
+
   const handleDeleteProgram = async (programId: number) => {
+    if (!coachId) {
+      toast({
+        title: "Error",
+        description: "Coach ID not found. Please reload and try again.",
+        variant: "destructive"
+      })
+      return
+    }
+
     if (!confirm('Are you sure you want to delete this program? This will also delete all associated milestones.')) {
       return
     }
 
     try {
-      const response = await fetch(`/api/coach/programs/${programId}`, {
+      const response = await fetch(`/api/coach/${coachId}/programs/${programId}`, {
         method: 'DELETE'
       })
 
@@ -335,6 +434,13 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
           description: "Program deleted successfully"
         })
         fetchPrograms()
+      } else {
+        const errorData = await response.json().catch(() => null)
+        toast({
+          title: "Error",
+          description: (errorData && errorData.error) || "Failed to delete program",
+          variant: "destructive"
+        })
       }
     } catch (error) {
       console.error('Error deleting program:', error)
@@ -489,6 +595,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                   <Button 
                     variant="ghost" 
                     size="sm" 
+                    className="text-blue-600 hover:text-blue-700"
                     onClick={(e) => {
                       e.stopPropagation()
                       setEditingProgram(program)
@@ -499,7 +606,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    className="text-red-600"
+                    className="text-red-600 hover:text-red-600"
                     onClick={(e) => {
                       e.stopPropagation()
                       handleDeleteProgram(program.id)
@@ -518,19 +625,12 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                     <h3 className="text-lg font-semibold">Milestones</h3>
                     <div className="flex gap-2">
                       <Button 
-                        variant="outline" 
                         size="sm"
                         onClick={() => {
-                          console.log('Test button clicked for program:', program.id)
-                          alert(`Test button clicked for program ${program.id}`)
+                          setSelectedProgramId(program.id)
+                          setIsAddMilestoneModalOpen(true)
                         }}
-                      >
-                        Test
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => toggleMilestoneForm(program.id)}
+                        className="bg-black text-white hover:bg-gray-800"
                       >
                         <Plus className="h-4 w-4 mr-2" />
                         Add Milestone
@@ -572,9 +672,9 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                       <div className="flex gap-2 mt-4">
                         <Button 
                           onClick={() => handleAddMilestone(program.id)}
-                          className="flex-1"
+                          className="flex-1 bg-black text-white hover:bg-gray-800"
                         >
-                          Add Milestone
+                          Add
                         </Button>
                         <Button 
                           variant="outline"
@@ -637,6 +737,63 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Add Milestone Modal */}
+        {isAddMilestoneModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Add New Milestone</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsAddMilestoneModalOpen(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Title</label>
+                    <Input 
+                      placeholder="Enter milestone title"
+                      className="mt-1"
+                      value={modalMilestoneForm.title}
+                      onChange={(e) => setModalMilestoneForm(prev => ({ ...prev, title: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Description</label>
+                    <Textarea 
+                      placeholder="Enter milestone description"
+                      className="mt-1"
+                      rows={3}
+                      value={modalMilestoneForm.description}
+                      onChange={(e) => setModalMilestoneForm(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-3 mt-6">
+                  <Button 
+                    className="flex-1 bg-black text-white hover:bg-gray-800"
+                    onClick={handleModalAddMilestone}
+                  >
+                    Add
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setIsAddMilestoneModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

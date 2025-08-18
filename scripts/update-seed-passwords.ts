@@ -28,7 +28,7 @@ async function updateSeedPasswords() {
         [hashedPassword, email]
       )
       
-      if (result.rowCount > 0) {
+      if (result.rowCount && result.rowCount > 0) {
         console.log(`Updated password for ${email}`)
       } else {
         console.log(`User ${email} not found`)
