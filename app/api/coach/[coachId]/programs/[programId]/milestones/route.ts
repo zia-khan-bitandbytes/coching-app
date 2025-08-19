@@ -124,6 +124,79 @@ export async function POST(
   }
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { coachId: string; programId: string } }
+) {
+  try {
+    const { coachId, programId } = await params
+    const url = new URL(request.url)
+    const milestoneId = url.searchParams.get('milestoneId')
+    const { title, description } = await request.json()
+    
+    if (!milestoneId) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the program belongs to the coach
+    const programCheck = await pool.query(`
+      SELECT id FROM coaching_programs 
+      WHERE id = $1 AND coach_id = $2
+    `, [programId, coachId])
+
+    if (programCheck.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Program not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    // Verify the milestone belongs to the program
+    const milestoneCheck = await pool.query(`
+      SELECT id FROM milestones 
+      WHERE id = $1 AND program_id = $2
+    `, [milestoneId, programId])
+
+    if (milestoneCheck.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    // Update the milestone
+    const result = await pool.query(`
+      UPDATE milestones 
+      SET title = $1, description = $2
+      WHERE id = $3 AND program_id = $4
+      RETURNING id, title, description, order_index, created_at
+    `, [title, description, milestoneId, programId])
+
+    const updatedMilestone = result.rows[0]
+
+    return NextResponse.json({
+      success: true,
+      milestone: {
+        id: updatedMilestone.id,
+        title: updatedMilestone.title,
+        description: updatedMilestone.description,
+        order_index: parseInt(updatedMilestone.order_index),
+        program_id: parseInt(programId),
+        created_at: updatedMilestone.created_at
+      }
+    })
+  } catch (error) {
+    console.error('Error updating milestone:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to update milestone' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { coachId: string; programId: string } }
