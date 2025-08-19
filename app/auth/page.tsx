@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { LoginForm } from "@/components/login-form"
 import { SignupForm } from "@/components/signup-form"
 import { Button } from "@/components/ui/button"
@@ -9,6 +10,15 @@ import Link from "next/link"
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true)
+  const searchParams = useSearchParams()
+
+  // Check if user should be shown login form after signup
+  useEffect(() => {
+    const showLogin = searchParams.get('showLogin')
+    if (showLogin === 'true') {
+      setIsLogin(true)
+    }
+  }, [searchParams])
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">

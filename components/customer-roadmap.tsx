@@ -1022,7 +1022,21 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                     }}
                                     onClick={() => {
                                       if (!task.completed && !updatingTasks.has(task.id)) {
-                                        handleTaskComplete(task.id, milestone.id)
+                                        // For tasks that require upload, only allow completion if files are uploaded
+                                        if (task.requiresUpload) {
+                                          if (task.files && task.files.length > 0) {
+                                            handleTaskComplete(task.id, milestone.id)
+                                          } else {
+                                            toast({
+                                              title: "Upload required",
+                                              description: "Please upload required files before completing this task.",
+                                              variant: "destructive"
+                                            })
+                                          }
+                                        } else {
+                                          // For regular tasks, allow completion
+                                          handleTaskComplete(task.id, milestone.id)
+                                        }
                                       }
                                     }}
                                   >
@@ -1032,7 +1046,9 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                           ? 'bg-green-500 border-green-500' 
                                           : updatingTasks.has(task.id)
                                             ? 'bg-blue-100 border-blue-300'
-                                            : 'bg-white border-gray-300 hover:border-green-400'
+                                            : task.requiresUpload && (!task.files || task.files.length === 0)
+                                              ? 'bg-yellow-100 border-yellow-300 cursor-not-allowed'
+                                              : 'bg-white border-gray-300 hover:border-green-400'
                                       }`}
                                       animate={{
                                         scale: task.completed ? [1, 1.2, 1] : updatingTasks.has(task.id) ? [1, 1.1, 1] : 1
@@ -1057,13 +1073,13 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                         <span className={`${task.completed ? 'text-gray-500 line-through' : 'text-gray-700'}`}>
                                           {task.title}
                                         </span>
-                                        {task.requiresUpload && !task.completed && (
+                                        {task.requiresUpload && (
                                           <Upload className="h-3 w-3 text-yellow-500" title="Upload required" />
                                         )}
                                       </div>
                                       
                                       {/* Upload functionality for tasks that require upload */}
-                                      {task.requiresUpload && !task.completed && (
+                                      {task.requiresUpload && (
                                         <div className="mt-2 flex items-center gap-2">
                                           <Input
                                             type="file"
@@ -1123,28 +1139,35 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                             <Upload className="h-4 w-4" />
                                           </button>
                                           <span className="text-xs text-gray-500">Upload required</span>
-                                          <button
-                                            onClick={async () => {
-                                              try {
-                                                await handleTaskComplete(task.id, milestone.id)
-                                                toast({
-                                                  title: "Task completed",
-                                                  description: "Task has been marked as complete.",
-                                                })
-                                              } catch (error) {
-                                                console.error('Error completing task:', error)
-                                                toast({
-                                                  title: "Error",
-                                                  description: "Failed to complete task. Please try again.",
-                                                  variant: "destructive"
-                                                })
-                                              }
-                                            }}
-                                            className="p-1.5 text-green-600 hover:text-white hover:bg-green-600 bg-green-50 border border-green-200 rounded-lg shadow-sm transition-all duration-200"
-                                            title="Mark task as complete"
-                                          >
-                                            <CheckCircle className="h-4 w-4" />
-                                          </button>
+                                          {/* Only show complete button if files have been uploaded */}
+                                          {task.files && task.files.length > 0 ? (
+                                            <button
+                                              onClick={async () => {
+                                                try {
+                                                  await handleTaskComplete(task.id, milestone.id)
+                                                  toast({
+                                                    title: "Task completed",
+                                                    description: "Task has been marked as complete.",
+                                                  })
+                                                } catch (error) {
+                                                  console.error('Error completing task:', error)
+                                                  toast({
+                                                    title: "Error",
+                                                    description: "Failed to complete task. Please try again.",
+                                                    variant: "destructive"
+                                                  })
+                                                }
+                                              }}
+                                              className="p-1.5 text-green-600 hover:text-white hover:bg-green-600 bg-green-50 border border-green-200 rounded-lg shadow-sm transition-all duration-200"
+                                              title="Mark task as complete"
+                                            >
+                                              <CheckCircle className="h-4 w-4" />
+                                            </button>
+                                          ) : (
+                                            <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                                              Upload files to complete
+                                            </span>
+                                          )}
                                         </div>
                                       )}
                                       
