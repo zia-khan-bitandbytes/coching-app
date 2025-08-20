@@ -133,9 +133,11 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   // Form states
   const [addProgramOpen, setAddProgramOpen] = useState(false)
   const [newProgram, setNewProgram] = useState({ name: '', description: '', price: 0 })
+  const [programErrors, setProgramErrors] = useState({ name: '', description: '', price: '' })
   
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false)
   const [newMilestone, setNewMilestone] = useState({ title: '', description: '', program_id: '' })
+  const [milestoneErrors, setMilestoneErrors] = useState({ title: '', description: '', program_id: '' })
   
   const [addMemberOpen, setAddMemberOpen] = useState(false)
   const [newMember, setNewMember] = useState({ email: '', name: '', program_id: '' })
@@ -165,6 +167,21 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   const [expandedMilestones, setExpandedMilestones] = useState<Set<string>>(new Set())
   const [editingMilestone, setEditingMilestone] = useState<Milestone | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
+
+  // Dialog open handlers
+  const openAddProgramDialog = () => {
+    setNewProgram({ name: '', description: '', price: 0 })
+    clearProgramErrors()
+    setAddProgramOpen(true)
+  }
+
+  const openAddMilestoneDialog = (programId: string) => {
+    console.log('Opening Add Milestone dialog for program:', programId)
+    setNewMilestone({ ...newMilestone, program_id: programId })
+    clearMilestoneErrors()
+    setAddMilestoneOpen(true)
+    console.log('Dialog state set to true')
+  }
 
   useEffect(() => {
     fetchCoachData()
@@ -215,7 +232,12 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
         console.log(`Program ${selectedProgram} stats:`, {
           totalCustomers: programStats.totalCustomers,
           completionRate: programStats.completionRate,
-          completedCount: Math.floor(programStats.completionRate * programStats.totalCustomers / 100),
+          completedCount: programCustomers.filter(c => 
+            c.enrolled_programs.some(ep => 
+              ep.id === selectedProgram && 
+              getProgramCompletionStatus(ep.milestones_count, ep.completed_milestones) === 'completed'
+            )
+          ).length,
           customers: programCustomers.map(c => ({
             name: c.name,
             programs: c.enrolled_programs.filter(ep => ep.id === selectedProgram).map(ep => ({
@@ -456,6 +478,18 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       console.log('Customers response:', customersData)
       if (customersData.success) {
         setCustomers(customersData.customers)
+        
+        // Debug: Log milestone completion data for each customer
+        console.log('Customers Milestone Debug:', customersData.customers.map(c => ({
+          name: c.name,
+          totalMilestones: c.completed_milestones,
+          programs: c.enrolled_programs.map(p => ({
+            name: p.name,
+            milestones: p.milestones_count,
+            completed: p.completed_milestones,
+            status: p.enrollment_status
+          }))
+        })))
       }
 
       // Fetch stats
@@ -470,6 +504,14 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       if (statsData.success) {
         setStats(statsData.stats)
         console.log('Stats set to:', statsData.stats)
+        
+        // Debug: Log the completion rate calculation
+        console.log('Completion Rate Debug:', {
+          milestoneCompletionRate: statsData.stats.completionRate,
+          totalCustomers: statsData.stats.totalCustomers,
+          totalMilestones: statsData.stats.totalMilestones,
+          note: 'completionRate represents milestone completion, not customer completion'
+        })
       }
     } catch (error) {
       console.error('Error fetching coach data:', error)
@@ -477,6 +519,11 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   }
 
   const handleAddProgram = async () => {
+    // Validate form before submitting
+    if (!validateProgram()) {
+      return
+    }
+
     try {
       const response = await fetch('/api/coach/programs', {
         method: 'POST',
@@ -487,14 +534,29 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       if (response.ok) {
         setAddProgramOpen(false)
         setNewProgram({ name: '', description: '', price: 0 })
+        clearProgramErrors()
         fetchCoachData() // Refresh data
+        toast({
+          title: "Success",
+          description: "Program added successfully!",
+        })
       }
     } catch (error) {
       console.error('Error adding program:', error)
+      toast({
+        title: "Error",
+        description: "Failed to add program. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
   const handleAddMilestone = async () => {
+    // Validate form before submitting
+    if (!validateMilestone()) {
+      return
+    }
+
     console.log('handleAddMilestone called with:', newMilestone)
     try {
       if (!newMilestone.program_id) {
@@ -515,17 +577,37 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       if (response.ok) {
         setAddMilestoneOpen(false)
         setNewMilestone({ title: '', description: '', program_id: '' })
+        clearMilestoneErrors()
         fetchCoachData() // Refresh data
+        toast({
+          title: "Success",
+          description: "Milestone added successfully!",
+        })
       } else {
         try {
           const errorData = await response.json()
           console.error('Failed to create milestone:', errorData)
+          toast({
+            title: "Error",
+            description: errorData.error || "Failed to create milestone. Please try again.",
+            variant: "destructive",
+          })
         } catch (parseError) {
           console.error('Failed to create milestone - could not parse error response:', response.status, response.statusText)
+          toast({
+            title: "Error",
+            description: "Failed to create milestone. Please try again.",
+            variant: "destructive",
+          })
         }
       }
     } catch (error) {
       console.error('Error adding milestone:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create milestone. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -828,13 +910,6 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
     })
   }
 
-  const openAddMilestoneDialog = (programId: string) => {
-    console.log('Opening Add Milestone dialog for program:', programId)
-    setNewMilestone({ ...newMilestone, program_id: programId })
-    setAddMilestoneOpen(true)
-    console.log('Dialog state set to true')
-  }
-
   const handleEditProgram = (program: Program) => {
     // This would open an edit dialog for the program
     // For now, just show a toast
@@ -894,6 +969,67 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
     }
   }
 
+  // Validation functions
+  const validateProgram = () => {
+    const errors = { name: '', description: '', price: '' }
+    
+    // Name validation: 3-50 characters
+    if (newProgram.name.length < 3) {
+      errors.name = 'Program name must be at least 3 characters'
+    } else if (newProgram.name.length > 50) {
+      errors.name = 'Program name must be 50 characters or less'
+    }
+    
+    // Description validation: 10-500 characters
+    if (newProgram.description.length < 10) {
+      errors.description = 'Description must be at least 10 characters'
+    } else if (newProgram.description.length > 500) {
+      errors.description = 'Description must be 500 characters or less'
+    }
+    
+    // Price validation: must be positive
+    if (newProgram.price <= 0) {
+      errors.price = 'Price must be greater than 0'
+    }
+    
+    setProgramErrors(errors)
+    return !Object.values(errors).some(error => error !== '')
+  }
+
+  const validateMilestone = () => {
+    const errors = { title: '', description: '', program_id: '' }
+    
+    // Title validation: 3-100 characters
+    if (newMilestone.title.length < 3) {
+      errors.title = 'Milestone title must be at least 3 characters'
+    } else if (newMilestone.title.length > 100) {
+      errors.title = 'Milestone title must be 100 characters or less'
+    }
+    
+    // Description validation: 10-1000 characters
+    if (newMilestone.description.length < 10) {
+      errors.description = 'Description must be at least 10 characters'
+    } else if (newMilestone.description.length > 1000) {
+      errors.description = 'Description must be 1000 characters or less'
+    }
+    
+    // Program ID validation: must be selected
+    if (!newMilestone.program_id) {
+      errors.program_id = 'Please select a program'
+    }
+    
+    setMilestoneErrors(errors)
+    return !Object.values(errors).some(error => error !== '')
+  }
+
+  const clearProgramErrors = () => {
+    setProgramErrors({ name: '', description: '', price: '' })
+  }
+
+  const clearMilestoneErrors = () => {
+    setMilestoneErrors({ title: '', description: '', program_id: '' })
+  }
+
   // Show different content based on active section
   if (activeSection === 'programs') {
     return (
@@ -905,7 +1041,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
           </div>
           <Dialog open={addProgramOpen} onOpenChange={setAddProgramOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={openAddProgramDialog}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Program
               </Button>
@@ -917,33 +1053,80 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
               </DialogHeader>
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="name">Program Name</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="name">Program Name</Label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500">3-50 characters</span>
+                      {newProgram.name.length >= 3 && newProgram.name.length <= 50 && (
+                        <span className="text-green-500">✓</span>
+                      )}
+                    </div>
+                  </div>
                   <Input
                     id="name"
                     value={newProgram.name}
-                    onChange={(e) => setNewProgram({ ...newProgram, name: e.target.value })}
+                    onChange={(e) => {
+                      setNewProgram({ ...newProgram, name: e.target.value })
+                      if (programErrors.name) clearProgramErrors()
+                    }}
                     placeholder="Enter program name"
+                    maxLength={50}
                   />
+                  <div className="mt-1">
+                    <span className="text-xs text-red-600">{programErrors.name}</span>
+                  </div>
                 </div>
                 <div>
-                  <Label htmlFor="description">Description</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="description">Description</Label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500">10-500 characters</span>
+                      {newProgram.description.length >= 10 && newProgram.description.length <= 500 && (
+                        <span className="text-green-500">✓</span>
+                      )}
+                    </div>
+                  </div>
                   <Textarea
                     id="description"
                     value={newProgram.description}
-                    onChange={(e) => setNewProgram({ ...newProgram, description: e.target.value })}
+                    onChange={(e) => {
+                      setNewProgram({ ...newProgram, description: e.target.value })
+                      if (programErrors.description) clearProgramErrors()
+                    }}
                     placeholder="Enter program description"
+                    maxLength={500}
+                    rows={3}
                   />
+                  <div className="mt-1">
+                    <span className="text-xs text-red-600">{programErrors.description}</span>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="price">Price ($)</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="price">Price ($)</Label>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">Must be greater than $0</span>
+                        {newProgram.price > 0 && (
+                          <span className="text-green-500">✓</span>
+                        )}
+                      </div>
+                    </div>
                     <Input
                       id="price"
                       type="number"
                       step="0.01"
+                      min="0.01"
                       value={newProgram.price}
-                      onChange={(e) => setNewProgram({ ...newProgram, price: parseFloat(e.target.value) })}
+                      onChange={(e) => {
+                        setNewProgram({ ...newProgram, price: parseFloat(e.target.value) || 0 })
+                        if (programErrors.price) clearProgramErrors()
+                      }}
+                      placeholder="0.00"
                     />
+                    <div className="mt-1">
+                      <span className="text-xs text-red-600">{programErrors.price}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1163,22 +1346,53 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label htmlFor="milestone-title">Title</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="milestone-title">Title</Label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500">3-100 characters</span>
+                    {newMilestone.title.length >= 3 && newMilestone.title.length <= 100 && (
+                      <span className="text-green-500">✓</span>
+                    )}
+                  </div>
+                </div>
                 <Input
                   id="milestone-title"
                   value={newMilestone.title}
-                  onChange={(e) => setNewMilestone({ ...newMilestone, title: e.target.value })}
+                  onChange={(e) => {
+                    setNewMilestone({ ...newMilestone, title: e.target.value })
+                    if (milestoneErrors.title) clearMilestoneErrors()
+                  }}
                   placeholder="Enter milestone title"
+                  maxLength={100}
                 />
+                <div className="mt-1">
+                  <span className="text-xs text-red-600">{milestoneErrors.title}</span>
+                </div>
               </div>
               <div>
-                <Label htmlFor="milestone-description">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="milestone-description">Description</Label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500">10-1000 characters</span>
+                    {newMilestone.description.length >= 10 && newMilestone.description.length <= 1000 && (
+                      <span className="text-green-500">✓</span>
+                    )}
+                  </div>
+                </div>
                 <Textarea
                   id="milestone-description"
                   value={newMilestone.description}
-                  onChange={(e) => setNewMilestone({ ...newMilestone, description: e.target.value })}
+                  onChange={(e) => {
+                    setNewMilestone({ ...newMilestone, description: e.target.value })
+                    if (milestoneErrors.description) clearMilestoneErrors()
+                  }}
                   placeholder="Enter milestone description"
+                  maxLength={1000}
+                  rows={3}
                 />
+                <div className="mt-1">
+                  <span className="text-xs text-red-600">{milestoneErrors.description}</span>
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -1561,7 +1775,10 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1 group-hover:text-gray-700 transition-colors duration-300">Client Success Rate (CSR)</p>
-              <p className="text-3xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">{Math.round(filteredStats.completionRate)}%</p>
+              <p className="text-3xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">
+                {filteredStats.totalCustomers > 0 ? Math.round((getCompletedCustomers().length / filteredStats.totalCustomers) * 100) : 0}%
+              </p>
+              <p className="text-xs text-gray-500 mt-1">% of customers who completed programs</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 group-hover:scale-110 transition-all duration-300">
               <CheckCircle className="w-6 h-6 text-green-700 group-hover:text-green-800 transition-colors duration-300" />
@@ -1590,7 +1807,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
             >
               <CheckCircle className="w-4 h-4 mr-1 group-hover:scale-110 transition-transform duration-300 text-green-600" />
               <span className="text-green-600 font-medium">
-                {Math.floor(filteredStats.completionRate * filteredStats.totalCustomers / 100)} of {filteredStats.totalCustomers}
+                {getCompletedCustomers().length} of {filteredStats.totalCustomers}
               </span>
               <span className="ml-1 text-xs">completed programs</span>
             </div>
@@ -1600,7 +1817,6 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
               {selectedProgram !== "all" && (
                 <span>Program: {programs.find(p => p.id === selectedProgram)?.name}</span>
               )}
-              <span className="ml-2">• Verified: {getCompletedCustomers().length} customers</span>
             </div>
             
             {/* Completed Customers Tooltip */}
@@ -1678,42 +1894,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
         </div>
       </div>
 
-      {/* Metrics Info */}
-      <div className="mb-6">
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <BarChart3 className="w-5 h-5 text-gray-700" />
-              <div>
-                <h3 className="font-semibold text-gray-900">Dashboard Metrics</h3>
-                <p className="text-sm text-gray-600">
-                  Metrics show real-time data: new customers this month, program completion rates, and revenue per customer. 
-                  {selectedProgram !== "all" && ` Currently viewing: ${programs.find(p => p.id === selectedProgram)?.name}`}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-600">Tooltip Mode:</span>
-              <Button
-                variant={tooltipMode === 'hover' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTooltipMode('hover')}
-                className="text-xs h-7 px-2"
-              >
-                Hover
-              </Button>
-              <Button
-                variant={tooltipMode === 'click' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTooltipMode('click')}
-                className="text-xs h-7 px-2"
-              >
-                Click
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+
 
       {/* Filter Summary */}
       {selectedProgram !== "all" && (

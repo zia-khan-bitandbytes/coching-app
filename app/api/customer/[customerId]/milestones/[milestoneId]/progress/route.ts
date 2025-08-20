@@ -114,7 +114,7 @@ export async function POST(
 
           // Parse files to ensure they exist
           try {
-            const filesMatch = task.description.match(/\[FILES:(.*?)\]$/)
+            const filesMatch = task.description.match(/\[FILES:([\s\S]*?)\]$/)
             if (filesMatch) {
               const files = JSON.parse(filesMatch[1])
               if (!files || files.length === 0) {

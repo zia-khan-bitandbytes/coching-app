@@ -17,9 +17,10 @@ export function SignupForm() {
     email: "",
     password: "",
     confirmPassword: "",
-    role: "customer" as UserRole
+    role: "coach" as UserRole
   })
   const [isLoading, setIsLoading] = useState(false)
+  const [errors, setErrors] = useState({ name: '', email: '', password: '', confirmPassword: '' })
   const router = useRouter()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -28,32 +29,58 @@ export function SignupForm() {
       ...prev,
       [name]: value
     }))
+    // Clear error when user starts typing
+    if (errors[name as keyof typeof errors]) {
+      setErrors(prev => ({ ...prev, [name]: '' }))
+    }
   }
 
-  const handleRoleChange = (value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      role: value as UserRole
-    }))
+  // Validation functions
+  const validateForm = () => {
+    const newErrors = { name: '', email: '', password: '', confirmPassword: '' }
+    
+    // Name validation: 2-50 characters
+    if (formData.name.length < 2) {
+      newErrors.name = 'Name must be at least 2 characters'
+    } else if (formData.name.length > 50) {
+      newErrors.name = 'Name must be 50 characters or less'
+    }
+    
+    // Email validation: basic format check
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address'
+    }
+    
+    // Password validation: 6-50 characters
+    if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters'
+    } else if (formData.password.length > 50) {
+      newErrors.password = 'Password must be 50 characters or less'
+    }
+    
+    // Confirm password validation
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match'
+    }
+    
+    setErrors(newErrors)
+    return !Object.values(newErrors).some(error => error !== '')
+  }
+
+  const clearErrors = () => {
+    setErrors({ name: '', email: '', password: '', confirmPassword: '' })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate form before submitting
+    if (!validateForm()) {
+      return
+    }
+    
     setIsLoading(true)
-
-    // Validate passwords match
-    if (formData.password !== formData.confirmPassword) {
-      showErrorToast("Passwords don't match")
-      setIsLoading(false)
-      return
-    }
-
-    // Validate password length
-    if (formData.password.length < 6) {
-      showErrorToast("Password must be at least 6 characters long")
-      setIsLoading(false)
-      return
-    }
 
     try {
       const response = await fetch('/api/auth/signup', {
@@ -94,7 +121,15 @@ export function SignupForm() {
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="name">Full Name</Label>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500">2-50 characters</span>
+                {formData.name.length >= 2 && formData.name.length <= 50 && (
+                  <span className="text-green-500">✓</span>
+                )}
+              </div>
+            </div>
             <Input
               id="name"
               name="name"
@@ -102,11 +137,21 @@ export function SignupForm() {
               placeholder="Enter your full name"
               value={formData.name}
               onChange={handleInputChange}
+              maxLength={50}
               required
             />
+            {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="email">Email</Label>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500">Valid email format</span>
+                {/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) && (
+                  <span className="text-green-500">✓</span>
+                )}
+              </div>
+            </div>
             <Input
               id="email"
               name="email"
@@ -116,31 +161,27 @@ export function SignupForm() {
               onChange={handleInputChange}
               required
             />
+            {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
-            <Select value={formData.role} onValueChange={handleRoleChange}>
-              <SelectTrigger id="role">
-                <SelectValue placeholder="Select your role" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="customer">
-                  <div className="flex flex-col">
-                    <div className="font-medium">{getRoleDisplayName('customer')}</div>
-                    <div className="text-sm text-muted-foreground">{getRoleDescription('customer')}</div>
-                  </div>
-                </SelectItem>
-                <SelectItem value="coach">
-                  <div className="flex flex-col">
-                    <div className="font-medium">{getRoleDisplayName('coach')}</div>
-                    <div className="text-sm text-muted-foreground">{getRoleDescription('coach')}</div>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="p-3 bg-gray-50 border rounded-md">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-900">Coach</span>
+                <span className="text-xs text-gray-500">• {getRoleDescription('coach')}</span>
+              </div>
+            </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500">6-50 characters</span>
+                {formData.password.length >= 6 && formData.password.length <= 50 && (
+                  <span className="text-green-500">✓</span>
+                )}
+              </div>
+            </div>
             <Input
               id="password"
               name="password"
@@ -148,11 +189,21 @@ export function SignupForm() {
               placeholder="Enter your password"
               value={formData.password}
               onChange={handleInputChange}
+              maxLength={50}
               required
             />
+            {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <div className="flex items-center space-x-2">
+                <span className="text-xs text-gray-500">Must match password</span>
+                {formData.password === formData.confirmPassword && formData.confirmPassword.length > 0 && (
+                  <span className="text-green-500">✓</span>
+                )}
+              </div>
+            </div>
             <Input
               id="confirmPassword"
               name="confirmPassword"
@@ -160,11 +211,13 @@ export function SignupForm() {
               placeholder="Confirm your password"
               value={formData.confirmPassword}
               onChange={handleInputChange}
+              maxLength={50}
               required
             />
+            {errors.confirmPassword && <p className="text-sm text-red-500">{errors.confirmPassword}</p>}
           </div>
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? "Creating account..." : `Create ${getRoleDisplayName(formData.role)} Account`}
+            {isLoading ? "Creating coach account..." : "Create Coach Account"}
           </Button>
         </form>
       </CardContent>

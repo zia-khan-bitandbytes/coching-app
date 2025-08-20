@@ -79,11 +79,12 @@ export async function GET(
         // If task_files table doesn't exist, try to parse from description as fallback
         if (row.description && row.description.includes('[FILES:')) {
           try {
-            const filesMatch = row.description.match(/\[FILES:(.*?)\]$/)
+            // Use a more flexible regex that handles newlines and multiline content
+            const filesMatch = row.description.match(/\[FILES:([\s\S]*?)\]$/)
             if (filesMatch) {
               files = JSON.parse(filesMatch[1])
               // Remove the files section from description
-              row.description = row.description.replace(/\n\n\[FILES:.*?\]$/, '')
+              row.description = row.description.replace(/\n\n\[FILES:[\s\S]*?\]$/, '')
             }
           } catch (parseError) {
             console.error('Error parsing files from description:', parseError)

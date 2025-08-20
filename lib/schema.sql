@@ -85,6 +85,18 @@ CREATE TABLE IF NOT EXISTS milestone_progress (
   UNIQUE(user_id, milestone_id)
 );
 
+-- Create task_progress table for tracking individual customer task completion
+CREATE TABLE IF NOT EXISTS task_progress (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  completed BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMP,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, task_id)
+);
+
 -- Create payments table with coach ownership
 CREATE TABLE IF NOT EXISTS payments (
   id SERIAL PRIMARY KEY,
@@ -149,6 +161,8 @@ CREATE INDEX IF NOT EXISTS idx_milestones_program_id ON milestones(program_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_milestone_id ON tasks(milestone_id);
 CREATE INDEX IF NOT EXISTS idx_milestone_progress_user_id ON milestone_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_milestone_progress_milestone_id ON milestone_progress(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_task_progress_user_id ON task_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_task_progress_task_id ON task_progress(task_id);
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_program_id ON payments(program_id);
 CREATE INDEX IF NOT EXISTS idx_messages_coach_id ON messages(coach_id);
@@ -163,6 +177,7 @@ CREATE TABLE IF NOT EXISTS task_files (
     id SERIAL PRIMARY KEY,
     task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
     milestone_id INTEGER REFERENCES milestones(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     file_name VARCHAR(255) NOT NULL,
     original_name VARCHAR(255) NOT NULL,
     file_path VARCHAR(500) NOT NULL,
@@ -175,6 +190,7 @@ CREATE TABLE IF NOT EXISTS task_files (
 -- Add index for better performance
 CREATE INDEX IF NOT EXISTS idx_task_files_task_id ON task_files(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_files_milestone_id ON task_files(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_task_files_user_id ON task_files(user_id);
 
 -- Insert sample super admin user
 INSERT INTO users (email, name, password, role) VALUES

@@ -68,6 +68,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
     description: '',
     goal_days: ''
   })
+  const [milestoneErrors, setMilestoneErrors] = useState({ title: '', description: '', goal_days: '' })
 
   // Form states
   const [programForm, setProgramForm] = useState({
@@ -75,6 +76,83 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
     description: '',
     price: ''
   })
+  const [programErrors, setProgramErrors] = useState({ name: '', description: '', price: '' })
+
+  // Validation functions
+  const validateProgram = () => {
+    const errors = { name: '', description: '', price: '' }
+    
+    // Name validation: 3-50 characters
+    if (programForm.name.length < 3) {
+      errors.name = 'Program name must be at least 3 characters'
+    } else if (programForm.name.length > 50) {
+      errors.name = 'Program name must be 50 characters or less'
+    }
+    
+    // Description validation: 10-500 characters
+    if (programForm.description.length < 10) {
+      errors.description = 'Description must be at least 10 characters'
+    } else if (programForm.description.length > 500) {
+      errors.description = 'Description must be 500 characters or less'
+    }
+    
+    // Price validation: must be positive number
+    const price = parseFloat(programForm.price)
+    if (isNaN(price) || price <= 0) {
+      errors.price = 'Price must be a positive number'
+    }
+    
+    setProgramErrors(errors)
+    return !Object.values(errors).some(error => error !== '')
+  }
+
+  const clearProgramErrors = () => {
+    setProgramErrors({ name: '', description: '', price: '' })
+  }
+
+  const validateMilestone = () => {
+    const errors = { title: '', description: '', goal_days: '' }
+    
+    // Title validation: 3-100 characters
+    if (modalMilestoneForm.title.length < 3) {
+      errors.title = 'Milestone title must be at least 3 characters'
+    } else if (modalMilestoneForm.title.length > 100) {
+      errors.title = 'Milestone title must be 100 characters or less'
+    }
+    
+    // Description validation: 10-500 characters
+    if (modalMilestoneForm.description.length < 10) {
+      errors.description = 'Description must be at least 10 characters'
+    } else if (modalMilestoneForm.description.length > 500) {
+      errors.description = 'Description must be 500 characters or less'
+    }
+    
+    // Goal days validation: must be positive number
+    const goalDays = parseInt(modalMilestoneForm.goal_days)
+    if (isNaN(goalDays) || goalDays <= 0) {
+      errors.goal_days = 'Goal days must be a positive number'
+    }
+    
+    setMilestoneErrors(errors)
+    return !Object.values(errors).some(error => error !== '')
+  }
+
+  const clearMilestoneErrors = () => {
+    setMilestoneErrors({ title: '', description: '', goal_days: '' })
+  }
+
+  const openAddMilestoneModal = (programId: number) => {
+    setSelectedProgramId(programId)
+    setModalMilestoneForm({ title: '', description: '', goal_days: '' })
+    clearMilestoneErrors()
+    setIsAddMilestoneModalOpen(true)
+  }
+
+  const openAddProgramDialog = () => {
+    setProgramForm({ name: '', description: '', price: '' })
+    clearProgramErrors()
+    setIsAddProgramOpen(true)
+  }
 
   useEffect(() => {
     if (coachId) {
@@ -187,21 +265,16 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
   }
 
   const handleAddProgram = async () => {
+    // Validate form before submitting
+    if (!validateProgram()) {
+      return
+    }
+
     // Ensure we have a coach id
     if (!coachId) {
       toast({
         title: "Error",
-        description: "Coach ID not found. Please reload and try again.",
-        variant: "destructive"
-      })
-      return
-    }
-
-    // Validate required fields
-    if (!programForm.name.trim() || !programForm.description.trim() || !programForm.price) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
+        description: "Coach profile not found. Please refresh the page or contact support if the issue persists.",
         variant: "destructive"
       })
       return
@@ -228,6 +301,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
           })
           setIsAddProgramOpen(false)
           setProgramForm({ name: '', description: '', price: '' })
+          clearProgramErrors()
           fetchPrograms()
         } else {
           toast({
@@ -362,17 +436,12 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
   const handleModalAddMilestone = async () => {
     if (!selectedProgramId) return
 
-    const { title, description, goal_days } = modalMilestoneForm
-    
-    // Validate required fields
-    if (!title.trim() || !description.trim() || !goal_days.trim()) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      })
+    // Validate form before submitting
+    if (!validateMilestone()) {
       return
     }
+
+    const { title, description, goal_days } = modalMilestoneForm
 
     try {
       const response = await fetch(`/api/coach/${coachId}/programs/${selectedProgramId}/milestones`, {
@@ -395,6 +464,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
           
           // Reset modal form and close modal
           setModalMilestoneForm({ title: '', description: '', goal_days: '' })
+          clearMilestoneErrors()
           setIsAddMilestoneModalOpen(false)
           setSelectedProgramId(null)
           
@@ -447,7 +517,6 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
           name: editingProgram.name.trim(),
           description: editingProgram.description.trim(),
           price: editingProgram.price,
-          duration_weeks: editingProgram.duration_weeks,
           is_active: editingProgram.is_active
         })
       })
@@ -651,7 +720,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
         </div>
         <Dialog open={isAddProgramOpen} onOpenChange={setIsAddProgramOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={openAddProgramDialog}>
               <Plus className="h-4 w-4 mr-2" />
               Add Program
             </Button>
@@ -663,33 +732,80 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="programName" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Program Name</label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="programName" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Program Name</label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500">3-50 characters</span>
+                    {programForm.name.length >= 3 && programForm.name.length <= 50 && (
+                      <span className="text-green-500">✓</span>
+                    )}
+                  </div>
+                </div>
                 <Input 
                   id="programName" 
                   placeholder="Enter program name"
                   value={programForm.name}
-                  onChange={(e) => setProgramForm({...programForm, name: e.target.value})}
+                  onChange={(e) => {
+                    setProgramForm({...programForm, name: e.target.value})
+                    if (programErrors.name) clearProgramErrors()
+                  }}
+                  maxLength={50}
                 />
+                <div className="mt-1">
+                  <span className="text-xs text-red-600">{programErrors.name}</span>
+                </div>
               </div>
               <div className="space-y-2">
-                <label htmlFor="programDescription" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Description</label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="programDescription" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Description</label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-gray-500">10-500 characters</span>
+                    {programForm.description.length >= 10 && programForm.description.length <= 500 && (
+                      <span className="text-green-500">✓</span>
+                    )}
+                  </div>
+                </div>
                 <Textarea 
                   id="programDescription" 
                   placeholder="Enter program description"
                   value={programForm.description}
-                  onChange={(e) => setProgramForm({...programForm, description: e.target.value})}
+                  onChange={(e) => {
+                    setProgramForm({...programForm, description: e.target.value})
+                    if (programErrors.description) clearProgramErrors()
+                  }}
+                  maxLength={500}
+                  rows={3}
                 />
+                <div className="mt-1">
+                  <span className="text-xs text-red-600">{programErrors.description}</span>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label htmlFor="programPrice" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Price ($)</label>
+                  <div className="flex items-center justify-between">
+                    <label htmlFor="programPrice" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Price ($)</label>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-gray-500">Must be greater than $0</span>
+                      {parseFloat(programForm.price) > 0 && (
+                        <span className="text-green-500">✓</span>
+                      )}
+                    </div>
+                  </div>
                   <Input 
                     id="programPrice" 
                     type="number" 
                     placeholder="0.00"
+                    min="0.01"
+                    step="0.01"
                     value={programForm.price}
-                    onChange={(e) => setProgramForm({...programForm, price: e.target.value})}
+                    onChange={(e) => {
+                      setProgramForm({...programForm, price: e.target.value})
+                      if (programErrors.price) clearProgramErrors()
+                    }}
                   />
+                  <div className="mt-1">
+                    <span className="text-xs text-red-600">{programErrors.price}</span>
+                  </div>
                 </div>
               </div>
               <Button className="w-full" onClick={handleAddProgram}>Add Program</Button>
@@ -735,16 +851,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                       onChange={(e) => setEditingProgram({...editingProgram, price: parseFloat(e.target.value) || 0})}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label htmlFor="editProgramDuration" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Duration (weeks)</label>
-                    <Input 
-                      id="editProgramDuration" 
-                      type="number" 
-                      placeholder="12"
-                      value={editingProgram.duration_weeks}
-                      onChange={(e) => setEditingProgram({...editingProgram, duration_weeks: parseInt(e.target.value) || 0})}
-                    />
-                  </div>
+
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -822,10 +929,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                     <div className="flex gap-2">
                       <Button 
                         size="sm"
-                        onClick={() => {
-                          setSelectedProgramId(program.id)
-                          setIsAddMilestoneModalOpen(true)
-                        }}
+                        onClick={() => openAddMilestoneModal(program.id)}
                         className="bg-black text-white hover:bg-gray-800"
                       >
                         <Plus className="h-4 w-4 mr-2" />
@@ -961,33 +1065,78 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                 
                 <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Title</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Title</label>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">3-100 characters</span>
+                        {modalMilestoneForm.title.length >= 3 && modalMilestoneForm.title.length <= 100 && (
+                          <span className="text-green-500">✓</span>
+                        )}
+                      </div>
+                    </div>
                     <Input 
                       placeholder="Enter milestone title"
                       className="mt-1"
                       value={modalMilestoneForm.title}
-                      onChange={(e) => setModalMilestoneForm(prev => ({ ...prev, title: e.target.value }))}
+                      onChange={(e) => {
+                        setModalMilestoneForm(prev => ({ ...prev, title: e.target.value }))
+                        if (milestoneErrors.title) clearMilestoneErrors()
+                      }}
+                      maxLength={100}
                     />
+                    <div className="mt-1">
+                      <span className="text-xs text-red-600">{milestoneErrors.title}</span>
+                    </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Description</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Description</label>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">10-500 characters</span>
+                        {modalMilestoneForm.description.length >= 10 && modalMilestoneForm.description.length <= 500 && (
+                          <span className="text-green-500">✓</span>
+                        )}
+                      </div>
+                    </div>
                     <Textarea 
                       placeholder="Enter milestone description"
                       className="mt-1"
                       rows={3}
                       value={modalMilestoneForm.description}
-                      onChange={(e) => setModalMilestoneForm(prev => ({ ...prev, description: e.target.value }))}
+                      onChange={(e) => {
+                        setModalMilestoneForm(prev => ({ ...prev, description: e.target.value }))
+                        if (milestoneErrors.description) clearMilestoneErrors()
+                      }}
+                      maxLength={500}
                     />
+                    <div className="mt-1">
+                      <span className="text-xs text-red-600">{milestoneErrors.description}</span>
+                    </div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-700">Goal Days</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Goal Days</label>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">Must be positive number</span>
+                        {parseInt(modalMilestoneForm.goal_days) > 0 && (
+                          <span className="text-green-500">✓</span>
+                        )}
+                      </div>
+                    </div>
                     <Input 
                       type="number"
                       placeholder="e.g., 30"
                       className="mt-1"
+                      min="1"
                       value={modalMilestoneForm.goal_days}
-                      onChange={(e) => setModalMilestoneForm(prev => ({ ...prev, goal_days: e.target.value }))}
+                      onChange={(e) => {
+                        setModalMilestoneForm(prev => ({ ...prev, goal_days: e.target.value }))
+                        if (milestoneErrors.goal_days) clearMilestoneErrors()
+                      }}
                     />
+                    <div className="mt-1">
+                      <span className="text-xs text-red-600">{milestoneErrors.goal_days}</span>
+                    </div>
                   </div>
                 </div>
                 

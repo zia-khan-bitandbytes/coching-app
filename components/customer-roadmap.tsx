@@ -167,6 +167,16 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
   }
 
   const handleToggleMilestone = async (milestoneId: number) => {
+    // Find the milestone to check if it's locked
+    const milestone = programsWithMilestones
+      .flatMap(p => p.milestones)
+      .find(m => m.id === milestoneId)
+    
+    // Prevent locked milestones from being expanded
+    if (milestone?.isLocked) {
+      return
+    }
+    
     setExpandedMilestones(prev => {
       const newSet = new Set(prev)
       if (newSet.has(milestoneId)) {
@@ -186,35 +196,30 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
       if (response.ok) {
         const result = await response.json()
         if (result.success && result.tasks) {
-          // Parse files from task descriptions and clean up the tasks
-          const tasksWithFiles = result.tasks.map((task: any) => {
-            let files = []
-            let cleanDescription = task.description || ''
-            
-            // Parse files from task description if they exist
-            if (task.description && task.description.includes('[FILES:')) {
-              try {
-                const filesMatch = task.description.match(/\[FILES:(.*?)\]$/)
-                if (filesMatch) {
-                  files = JSON.parse(filesMatch[1])
-                  cleanDescription = task.description.replace(/\n\n\[FILES:.*?\]$/, '')
-                }
-              } catch (error) {
-                console.error('Error parsing task files:', error)
-              }
+          // Tasks now come with files directly from the API
+          const tasksWithFiles = result.tasks.map((task: any) => ({
+            ...task,
+            // The API already returns requiresUpload, don't override it
+            // Clean the description to remove [FILES:...] JSON data
+            description: cleanTaskDescription(task.description)
+          }))
+          
+          // Debug: Log the loaded tasks and their completion status
+          console.log('Loaded tasks for milestone:', milestoneId, tasksWithFiles)
+          console.log('Task completion status:', tasksWithFiles.map((t: any) => ({ id: t.id, title: t.title, completed: t.completed })))
+          console.log('Task upload requirements:', tasksWithFiles.map((t: any) => ({ id: t.id, title: t.title, requiresUpload: t.requiresUpload })))
+          
+          // Debug: Check specific task upload requirements
+          tasksWithFiles.forEach((task: any) => {
+            if (task.title === 'Data cleaning') {
+              console.log('Data cleaning task details:', {
+                id: task.id,
+                title: task.title,
+                requiresUpload: task.requiresUpload,
+                description: task.description,
+                files: task.files
+              })
             }
-            
-            const processedTask = {
-              ...task,
-              description: cleanDescription,
-              files: files,
-              requiresUpload: task.requires_upload || false
-            }
-            
-            // Debug all tasks to see upload requirements
-            console.log('Task:', task.title, 'requires_upload:', task.requires_upload, 'requiresUpload:', processedTask.requiresUpload, 'full task:', task)
-            
-            return processedTask
           })
           
           // Update the milestone with its tasks
@@ -372,21 +377,34 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
         
         if (result.success) {
           // Update the task in local state
-          setProgramsWithMilestones(prev => prev.map(program => ({
-            ...program,
-            milestones: program.milestones.map(m => 
-              m.id === milestoneId
-                ? {
-                    ...m,
-                    tasks: m.tasks.map(t => 
-                      t.id === taskId 
-                        ? { ...t, completed: true, completed_at: new Date().toISOString() }
-                        : t
-                    )
-                  }
-                : m
-            )
-          })))
+          setProgramsWithMilestones(prev => {
+            const updatedPrograms = prev.map(program => ({
+              ...program,
+              milestones: program.milestones.map(m => 
+                m.id === milestoneId
+                  ? {
+                      ...m,
+                      tasks: m.tasks.map(t => 
+                        t.id === taskId 
+                          ? { ...t, completed: true, completed_at: new Date().toISOString() }
+                          : t
+                      )
+                    }
+                  : m
+              )
+            }))
+            
+            // Debug: Log the updated milestone state
+            const updatedMilestone = updatedPrograms
+              .flatMap(p => p.milestones)
+              .find(m => m.id === milestoneId)
+            if (updatedMilestone) {
+              console.log('Updated milestone after task completion:', updatedMilestone)
+              console.log('All tasks completed:', areAllTasksCompleted(updatedMilestone))
+            }
+            
+            return updatedPrograms
+          })
           
           toast({
             title: 'Task completed!',
@@ -464,6 +482,46 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  // Function to clean task description by removing [FILES:...] JSON data
+  const cleanTaskDescription = (description: string) => {
+    if (!description || !description.includes('[FILES:')) {
+      return description
+    }
+    
+    try {
+      // Remove the files section from description for display
+      return description.replace(/\n\n\[FILES:[\s\S]*?\]$/, '')
+    } catch (error) {
+      console.error('Error cleaning task description:', error)
+      return description
+    }
+  }
+
+  // Helper function to check if all tasks in a milestone are completed
+  const areAllTasksCompleted = (milestone: Milestone) => {
+    if (!milestone.tasks || milestone.tasks.length === 0) {
+      console.log('No tasks found for milestone:', milestone.id)
+      return false
+    }
+    
+    const allCompleted = milestone.tasks.every(task => task.completed === true)
+    console.log('Milestone completion check:', {
+      milestoneId: milestone.id,
+      totalTasks: milestone.tasks.length,
+      completedTasks: milestone.tasks.filter(t => t.completed === true).length,
+      allCompleted,
+      taskStatus: milestone.tasks.map(t => ({ id: t.id, title: t.title, completed: t.completed }))
+    })
+    
+    return allCompleted
+  }
+
+  // Helper function to check if a task has uploaded files (ONLY from task.files array)
+  const taskHasUploadedFiles = (task: any) => {
+    // Only check if task has files in the files array (customer-specific)
+    return task.files && task.files.length > 0
   }
 
   const getStatusIcon = (status: string) => {
@@ -705,9 +763,14 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                             <div className="flex-1">
                               <div className="flex items-center space-x-3 mb-2">
                                 <h3 className="text-lg font-semibold text-gray-900">{milestone.title}</h3>
-                                <Badge className={getStatusColor(milestone.status)}>
-                                  {milestone.status.replace('-', ' ')}
-                                </Badge>
+                                <div className="flex items-center space-x-2">
+                                  <Badge className={getStatusColor(milestone.status)}>
+                                    {milestone.status.replace('-', ' ')}
+                                  </Badge>
+                                  {milestone.isLocked && (
+                                    <Lock className="w-4 h-4 text-gray-500" />
+                                  )}
+                                </div>
                           {milestone.goal_days && (
                                   <Badge variant="outline" className="text-xs">
                                     <Target className="w-3 h-3 mr-1" />
@@ -717,6 +780,14 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                               </div>
                               
                               <p className="text-gray-600 mb-3">{milestone.description}</p>
+                              
+                              {/* Locked milestone message */}
+                              {milestone.isLocked && (
+                                <div className="flex items-center space-x-2 text-sm text-gray-500 mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                                  <Lock className="w-4 h-4" />
+                                  <span>This milestone is locked. Complete the previous milestone to unlock it.</span>
+                                </div>
+                              )}
                               
                               {/* Timing Information */}
                               <div className="flex items-center space-x-4 text-sm">
@@ -753,7 +824,8 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                           
                           {/* Action Buttons */}
                           <div className="flex items-center space-x-2">
-                            {milestone.status === "in-progress" && !milestone.started_at && (
+                            {/* Only show actions for milestones that are not locked */}
+                            {!milestone.isLocked && milestone.status === "in-progress" && !milestone.started_at && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -764,36 +836,48 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                         </Button>
                       )}
                       
-                            {milestone.status === "in-progress" && milestone.started_at && (
+                            {!milestone.isLocked && milestone.status === "in-progress" && milestone.started_at && (
                         <Button
                                 variant="default"
                           size="sm"
                           onClick={() => handleMarkComplete(milestone)}
                           disabled={
                             updatingMilestones.has(milestone.id.toString()) ||
-                            (milestone.tasks && milestone.tasks.length > 0 && 
-                             milestone.tasks.some(task => !task.completed))
+                            !milestone.tasks || milestone.tasks.length === 0 ||
+                            !areAllTasksCompleted(milestone)
                           }
                                 className={`${
-                            milestone.tasks && milestone.tasks.length > 0 && 
-                            milestone.tasks.some(task => !task.completed)
+                            !milestone.tasks || milestone.tasks.length === 0 ||
+                            !areAllTasksCompleted(milestone)
                               ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
                               : 'bg-green-600 hover:bg-green-700'
                           }`}
                         >
                           {updatingMilestones.has(milestone.id.toString()) 
                             ? 'Updating...' 
-                            : milestone.tasks && milestone.tasks.length > 0 && 
-                              milestone.tasks.some(task => !task.completed)
+                            : !milestone.tasks || milestone.tasks.length === 0
+                              ? 'Load Tasks First'
+                              : !areAllTasksCompleted(milestone)
                               ? 'Complete All Tasks First'
                               : 'Mark Complete'}
                         </Button>
                       )}
+                      
+                      {/* Debug info for milestone completion */}
+                      {!milestone.isLocked && milestone.status === "in-progress" && milestone.started_at && (
+                        <div className="text-xs text-gray-500 mt-1">
+                          Debug: Tasks loaded: {milestone.tasks ? milestone.tasks.length : 0}, 
+                          All completed: {milestone.tasks ? areAllTasksCompleted(milestone) : 'N/A'}
+                        </div>
+                      )}
                             
+                      {/* Toggle button - only allow for non-locked milestones or to show locked status */}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleToggleMilestone(milestone.id)}
+                        disabled={milestone.isLocked}
+                        className={milestone.isLocked ? 'opacity-50 cursor-not-allowed' : ''}
                             >
                               {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                       </Button>
@@ -802,7 +886,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
 
                         {/* Expanded Milestone Details */}
                 <AnimatePresence>
-                  {isExpanded && (
+                  {isExpanded && !milestone.isLocked && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
@@ -841,7 +925,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                               </h5>
                                               {task.description && (
                                                 <p className={`text-sm mt-1 ${task.completed ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                  {task.description}
+                                                  {cleanTaskDescription(task.description)}
                                                 </p>
                                               )}
                                             </div>
@@ -849,17 +933,16 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                           
                                           <div className="flex items-center space-x-2">
                                             {/* Upload File Button - Show for tasks that require upload */}
-                                            {console.log('Rendering task:', task.title, 'requiresUpload:', task.requiresUpload)}
                                             {(task.requiresUpload || task.title === 'Testing') && (
                                               <div className="flex items-center space-x-2">
-                                                {task.files && task.files.length > 0 ? (
+                                                {taskHasUploadedFiles(task) ? (
                                                   <div className="flex items-center space-x-2">
                                                     <Badge variant="default" className="text-xs bg-green-100 text-green-800">
                                                       <CheckCircle className="w-3 h-3 mr-1" />
                                                       File Uploaded
                                                     </Badge>
                                                     <span className="text-xs text-gray-600">
-                                                      {task.files[0].original_filename || task.files[0].filename}
+                                                      {task.files && task.files.length > 0 ? task.files[0].name : 'File uploaded'}
                                                     </span>
                                                   </div>
                                                 ) : (
@@ -890,13 +973,13 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                                     </Badge>
                                                   </div>
                                                 )}
-                                            </div>
+                                              </div>
                                             )}
                                             
                                             {/* Mark Done Button - Only show when task can be completed */}
                                             {!task.completed && (
                                               <>
-                                                {(task.requiresUpload || task.title === 'Testing') && (!task.files || task.files.length === 0) ? (
+                                                {(task.requiresUpload || task.title === 'Testing') && !taskHasUploadedFiles(task) ? (
                                                   <Button
                                                     variant="outline"
                                                     size="sm"
@@ -931,16 +1014,19 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                         </div>
                                         
                                         {/* Display uploaded files */}
-                                        {task.files && task.files.length > 0 && (
+                                        {taskHasUploadedFiles(task) && (
                                           <div className="mt-3 pt-3 border-t border-gray-200">
                                             <p className="text-xs font-medium text-gray-600 mb-2">Uploaded Files:</p>
                                             <div className="space-y-1">
-                                              {task.files.map((file: any, fileIndex: number) => (
-                                                <div key={fileIndex} className="flex items-center justify-between p-2 bg-blue-50 rounded text-xs">
-                                                  <span className="text-blue-800 truncate">{file.name}</span>
-                                                  <span className="text-xs text-blue-600">({formatFileSize(file.size)})</span>
-                                                </div>
-                                              ))}
+                                              {task.files && task.files.length > 0 ? (
+                                                // Display files from task.files array (customer-specific)
+                                                task.files.map((file: any, fileIndex: number) => (
+                                                  <div key={fileIndex} className="flex items-center justify-between p-2 bg-blue-50 rounded text-xs">
+                                                    <span className="text-blue-800 truncate">{file.name}</span>
+                                                    <span className="text-xs text-blue-600">({formatFileSize(file.size)})</span>
+                                                  </div>
+                                                ))
+                                              ) : null}
                                             </div>
                                           </div>
                                         )}

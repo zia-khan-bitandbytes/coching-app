@@ -162,10 +162,10 @@ export async function POST(
       // Parse existing files if any
       if (currentDescription && currentDescription.includes('[FILES:')) {
         try {
-          const filesMatch = currentDescription.match(/\[FILES:(.*?)\]$/)
+          const filesMatch = currentDescription.match(/\[FILES:([\s\S]*?)\]$/)
           if (filesMatch) {
             files = JSON.parse(filesMatch[1])
-            cleanDescription = currentDescription.replace(/\n\n\[FILES:.*?\]$/, '')
+            cleanDescription = currentDescription.replace(/\n\n\[FILES:[\s\S]*?\]$/, '')
           }
         } catch (error) {
           console.error('Error parsing existing files:', error)

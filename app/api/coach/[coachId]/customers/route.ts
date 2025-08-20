@@ -39,7 +39,7 @@ export async function GET(
     // Get detailed program information for each customer
     const customersWithPrograms = await Promise.all(
       customersResult.rows.map(async (row) => {
-        // Get programs for this customer
+        // Get programs for this customer with accurate milestone completion tracking
         const programsResult = await pool.query(`
           SELECT 
             cp.id,
@@ -50,11 +50,11 @@ export async function GET(
             up.status as enrollment_status,
             up.enrolled_at,
             COUNT(DISTINCT m.id) as milestones_count,
-            COUNT(DISTINCT mp.milestone_id) as completed_milestones,
+            COUNT(DISTINCT CASE WHEN mp.completed = true THEN mp.milestone_id END) as completed_milestones,
             CASE 
-              WHEN COUNT(DISTINCT m.id) > 0 AND COUNT(DISTINCT mp.milestone_id) = COUNT(DISTINCT m.id) 
+              WHEN COUNT(DISTINCT m.id) > 0 AND COUNT(DISTINCT CASE WHEN mp.completed = true THEN mp.milestone_id END) = COUNT(DISTINCT m.id) 
               THEN 'completed'
-              WHEN COUNT(DISTINCT mp.milestone_id) > 0 
+              WHEN COUNT(DISTINCT CASE WHEN mp.completed = true THEN mp.milestone_id END) > 0 
               THEN 'in_progress'
               ELSE 'not_started'
             END as calculated_status
@@ -73,7 +73,7 @@ export async function GET(
           description: program.description,
           price: parseFloat(program.price),
           is_active: program.is_active,
-          enrollment_status: program.calculated_status, // Use calculated status instead of enrollment status
+          enrollment_status: program.calculated_status, // Use calculated status based on milestone completion
           enrolled_at: program.enrolled_at,
           milestones_count: parseInt(program.milestones_count),
           completed_milestones: parseInt(program.completed_milestones)
@@ -92,6 +92,21 @@ export async function GET(
         }
       })
     )
+
+    console.log('Customers data calculated:', {
+      totalCustomers: customersWithPrograms.length,
+      sampleCustomer: customersWithPrograms[0],
+      milestoneBreakdown: customersWithPrograms.map(c => ({
+        name: c.name,
+        totalMilestones: c.completed_milestones,
+        programs: c.enrolled_programs.map(p => ({
+          name: p.name,
+          milestones: p.milestones_count,
+          completed: p.completed_milestones,
+          status: p.enrollment_status
+        }))
+      }))
+    })
 
     return NextResponse.json({
       success: true,

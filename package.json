@@ -11,7 +11,8 @@
     "db:setup": "tsx scripts/setup-db.ts",
     "db:migrate": "tsx lib/migrate-reset-token.ts",
     "db:migrate-roles": "tsx lib/migrate-roles.ts",
-    "db:test-users": "tsx scripts/create-test-users.ts"
+    "db:test-users": "tsx scripts/create-test-users.ts",
+    "db:fix-coaches": "tsx scripts/fix-missing-coaches.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

@@ -94,6 +94,21 @@ export async function POST(request: NextRequest) {
 
     const newUser = result.rows[0] as User
 
+    // If user is a coach, automatically create a coach record
+    if (role === 'coach') {
+      try {
+        await pool.query(
+          'INSERT INTO coaches (user_id, business_name, bio, specialization) VALUES ($1, $2, $3, $4)',
+          [newUser.id, `${name}'s Coaching Business`, `Welcome to ${name}'s coaching services`, 'General Coaching']
+        )
+        console.log(`Created coach record for user ${newUser.id}`)
+      } catch (coachError) {
+        console.error('Error creating coach record:', coachError)
+        // Don't fail the signup if coach record creation fails
+        // The user can still access the system, they just won't be able to create programs
+      }
+    }
+
     // Return user data (without password)
     const { password: _, ...userWithoutPassword } = newUser
     
