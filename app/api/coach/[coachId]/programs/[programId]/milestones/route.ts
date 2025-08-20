@@ -3,10 +3,17 @@ import pool from '@/lib/db'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { coachId: string; programId: string } }
+  { params }: { params: Promise<{ coachId: string; programId: string }> }
 ) {
   try {
     const { coachId, programId } = await params
+
+    if (!coachId || !programId) {
+      return NextResponse.json(
+        { success: false, error: 'Coach ID and Program ID are required' },
+        { status: 400 }
+      )
+    }
 
     // Verify the program belongs to the coach
     const programCheck = await pool.query(`
@@ -69,10 +76,18 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { coachId: string; programId: string } }
+  { params }: { params: Promise<{ coachId: string; programId: string }> }
 ) {
   try {
     const { coachId, programId } = await params
+    
+    if (!coachId || !programId) {
+      return NextResponse.json(
+        { success: false, error: 'Coach ID and Program ID are required' },
+        { status: 400 }
+      )
+    }
+
     const { title, description, goal_days } = await request.json()
 
     // Verify the program belongs to the coach

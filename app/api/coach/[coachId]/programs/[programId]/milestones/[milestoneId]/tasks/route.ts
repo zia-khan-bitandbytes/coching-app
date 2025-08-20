@@ -3,10 +3,17 @@ import pool from '@/lib/db'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { coachId: string; programId: string; milestoneId: string } }
+  { params }: { params: Promise<{ coachId: string; programId: string; milestoneId: string }> }
 ) {
   try {
     const { coachId, programId, milestoneId } = await params
+
+    if (!coachId || !programId || !milestoneId) {
+      return NextResponse.json(
+        { success: false, error: 'Coach ID, Program ID, and Milestone ID are required' },
+        { status: 400 }
+      )
+    }
 
     // Verify the program belongs to the coach and milestone belongs to program
     const verificationResult = await pool.query(`
@@ -247,10 +254,18 @@ export async function POST(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { coachId: string; programId: string; milestoneId: string } }
+  { params }: { params: Promise<{ coachId: string; programId: string; milestoneId: string }> }
 ) {
   try {
     const { coachId, programId, milestoneId } = await params
+    
+    if (!coachId || !programId || !milestoneId) {
+      return NextResponse.json(
+        { success: false, error: 'Coach ID, Program ID, and Milestone ID are required' },
+        { status: 400 }
+      )
+    }
+    
     const url = new URL(request.url)
     const taskId = url.searchParams.get('taskId')
     const { title, description, requiresUpload } = await request.json()
@@ -393,10 +408,18 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { coachId: string; programId: string; milestoneId: string } }
+  { params }: { params: Promise<{ coachId: string; programId: string; milestoneId: string }> }
 ) {
   try {
     const { coachId, programId, milestoneId } = await params
+    
+    if (!coachId || !programId || !milestoneId) {
+      return NextResponse.json(
+        { success: false, error: 'Coach ID, Program ID, and Milestone ID are required' },
+        { status: 400 }
+      )
+    }
+    
     const url = new URL(request.url)
     const taskId = url.searchParams.get('taskId')
     

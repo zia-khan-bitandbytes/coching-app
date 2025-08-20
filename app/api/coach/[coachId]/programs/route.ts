@@ -3,10 +3,17 @@ import pool from '@/lib/db'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { coachId: string } }
+  { params }: { params: Promise<{ coachId: string }> }
 ) {
   try {
     const { coachId } = await params
+
+    if (!coachId) {
+      return NextResponse.json(
+        { success: false, error: 'Coach ID is required' },
+        { status: 400 }
+      )
+    }
 
     // Get coach programs with enrollment counts and revenue
     const programsResult = await pool.query(`
