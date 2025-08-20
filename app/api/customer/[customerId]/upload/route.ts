@@ -9,13 +9,26 @@ export async function POST(
   { params }: { params: Promise<{ customerId: string }> }
 ) {
   try {
+    console.log('=== Customer Upload API Called ===')
+    
     const { customerId } = await params
+    console.log('Customer ID:', customerId)
+    
     const formData = await request.formData()
     const file = formData.get('file') as File
     const milestoneId = formData.get('milestoneId') as string
     const taskId = formData.get('taskId') as string
 
+    console.log('Form data:', { 
+      milestoneId, 
+      taskId, 
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type
+    })
+
     if (!file) {
+      console.log('No file provided')
       return NextResponse.json({ 
         success: false, 
         error: 'No file provided' 
@@ -23,6 +36,7 @@ export async function POST(
     }
 
     if (!milestoneId || !taskId) {
+      console.log('Missing parameters:', { milestoneId, taskId })
       return NextResponse.json({ 
         success: false, 
         error: 'Missing required parameters' 
@@ -30,6 +44,7 @@ export async function POST(
     }
 
     // Verify the customer has access to this milestone and task
+    console.log('Verifying customer access...')
     const verificationResult = await pool.query(`
       SELECT t.id, m.id as milestone_id, cp.coach_id, cp.id as program_id
       FROM tasks t
@@ -39,7 +54,10 @@ export async function POST(
       WHERE t.id = $1 AND m.id = $2 AND up.user_id = $3
     `, [taskId, milestoneId, customerId])
 
+    console.log('Verification result rows:', verificationResult.rows.length)
+
     if (verificationResult.rows.length === 0) {
+      console.log('Access denied')
       return NextResponse.json({ 
         success: false, 
         error: 'Task not found or access denied' 
@@ -50,16 +68,23 @@ export async function POST(
     const coachId = taskData.coach_id.toString()
     const programId = taskData.program_id.toString()
 
+    console.log('Task data:', taskData)
+
     // Create uploads directory if it doesn't exist
     const uploadsDir = join(process.cwd(), 'public', 'uploads')
+    console.log('Uploads directory:', uploadsDir)
+    
     if (!existsSync(uploadsDir)) {
+      console.log('Creating uploads directory...')
       await mkdir(uploadsDir, { recursive: true })
     }
 
     // Create subdirectories for better organization
-    const coachDir = join(uploadsDir, coachId)
-    const programDir = join(coachDir, programId)
-    const milestoneDir = join(programDir, milestoneId)
+    const coachDir = join(uploadsDir, coachId.toString())
+    const programDir = join(coachDir, programId.toString())
+    const milestoneDir = join(programDir, milestoneId.toString())
+    
+    console.log('Creating directories:', { coachDir, programDir, milestoneDir })
     
     if (!existsSync(coachDir)) {
       await mkdir(coachDir, { recursive: true })
@@ -74,14 +99,17 @@ export async function POST(
     // Generate unique filename
     const timestamp = Date.now()
     const originalName = file.name
-    const fileExtension = originalName.split('.').pop()
     const fileName = `${timestamp}_${originalName.replace(/[^a-zA-Z0-9.-]/g, '_')}`
     const filePath = join(milestoneDir, fileName)
+
+    console.log('Saving file to:', filePath)
 
     // Convert file to buffer and save
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     await writeFile(filePath, buffer)
+
+    console.log('File saved successfully')
 
     // Generate public URL
     const publicUrl = `/api/files/${coachId}/${programId}/${milestoneId}/${fileName}`
@@ -118,6 +146,8 @@ export async function POST(
         uploaded_at: new Date()
       }
     }
+
+    console.log('File record:', fileRecord)
 
     // Update the task to include the uploaded file
     const taskResult = await pool.query(`
@@ -162,7 +192,11 @@ export async function POST(
         SET description = $1
         WHERE id = $2
       `, [newDescription, taskId])
+
+      console.log('Task updated with new file')
     }
+
+    console.log('Upload completed successfully')
 
     return NextResponse.json({
       success: true,
@@ -177,10 +211,12 @@ export async function POST(
     })
 
   } catch (error) {
-    console.error('Error uploading file:', error)
+    console.error('Error in customer upload:', error)
+    console.error('Error stack:', (error as Error).stack)
     return NextResponse.json({ 
       success: false, 
-      error: 'Failed to upload file' 
+      error: 'Failed to upload file',
+      details: (error as Error).message
     }, { status: 500 })
   }
 } 

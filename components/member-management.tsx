@@ -47,6 +47,7 @@ interface Program {
 export function MemberManagement() {
   const { toast } = useToast()
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [programs, setPrograms] = useState<Program[]>([])
   const [coachId, setCoachId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
 
@@ -83,11 +84,13 @@ export function MemberManagement() {
           console.log('MemberManagement: setting coachId:', user.coach_id)
           setCoachId(user.coach_id)
           fetchCustomers(user.coach_id)
+          fetchPrograms(user.coach_id)
         } else {
           console.log('MemberManagement: coach user but no coach_id found')
           console.log('MemberManagement: trying to use user.id as coach_id:', user.id)
           setCoachId(user.id)
           fetchCustomers(user.id)
+          fetchPrograms(user.id)
         }
       } else {
         console.log('MemberManagement: user is not a coach, role:', user.role)
@@ -105,6 +108,20 @@ export function MemberManagement() {
     coachId,
     isLoading
   })
+
+  const fetchPrograms = async (coachId: string) => {
+    try {
+      const response = await fetch(`/api/coach/${coachId}/programs`)
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          setPrograms(data.programs)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching programs:', error)
+    }
+  }
 
   const fetchCustomers = async (coachId: string) => {
     try {
@@ -288,13 +305,27 @@ export function MemberManagement() {
                       <SelectValue placeholder="Select a program" />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* Programs will be loaded from the roadmap editor */}
+                      {programs.length > 0 ? (
+                        programs.map((program) => (
+                          <SelectItem key={program.id} value={program.id}>
+                            {program.name} - ${program.price}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <SelectItem value="" disabled>
+                          No programs available
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
-                <Button onClick={handleSendInvitation} className="w-full">
+                <Button 
+                  onClick={handleSendInvitation} 
+                  className="w-full"
+                  disabled={programs.length === 0}
+                >
                   <Mail className="h-4 w-4 mr-2" />
-                  Send Invitation Email
+                  {programs.length === 0 ? 'No Programs Available' : 'Send Invitation Email'}
                 </Button>
               </div>
             ) : (

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -304,7 +305,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
 
     try {
       console.log('Sending POST request to create milestone')
-      const response = await fetch(`/api/coach/1/programs/${programId}/milestones`, {
+      const response = await fetch(`/api/coach/${coachId}/programs/${programId}/milestones`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -374,7 +375,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
     }
 
     try {
-      const response = await fetch(`/api/coach/1/programs/${selectedProgramId}/milestones`, {
+      const response = await fetch(`/api/coach/${coachId}/programs/${selectedProgramId}/milestones`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -413,6 +414,73 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
       toast({
         title: "Error",
         description: "Failed to create milestone",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleEditProgram = async () => {
+    if (!editingProgram || !coachId) {
+      toast({
+        title: "Error",
+        description: "Program data or Coach ID not found. Please reload and try again.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Validate required fields
+    if (!editingProgram.name.trim() || !editingProgram.description.trim()) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/coach/${coachId}/programs/${editingProgram.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editingProgram.name.trim(),
+          description: editingProgram.description.trim(),
+          price: editingProgram.price,
+          duration_weeks: editingProgram.duration_weeks,
+          is_active: editingProgram.is_active
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          toast({
+            title: "Success",
+            description: "Program updated successfully"
+          })
+          setEditingProgram(null)
+          fetchPrograms()
+        } else {
+          toast({
+            title: "Error",
+            description: data.error || "Failed to update program",
+            variant: "destructive"
+          })
+        }
+      } else {
+        const errorData = await response.json().catch(() => null)
+        toast({
+          title: "Error",
+          description: (errorData && errorData.error) || "Failed to update program",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error updating program:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update program",
         variant: "destructive"
       })
     }
@@ -461,13 +529,76 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
     }
   }
 
+  const handleEditMilestone = async (programId: number, milestoneId: number, newTitle: string, newDescription: string) => {
+    if (!coachId) {
+      toast({
+        title: "Error",
+        description: "Coach ID not found. Please reload and try again.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    // Validate required fields
+    if (!newTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Milestone title is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/coach/${coachId}/programs/${programId}/milestones?milestoneId=${milestoneId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTitle.trim(),
+          description: newDescription.trim()
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success) {
+          toast({
+            title: "Success",
+            description: "Milestone updated successfully"
+          })
+          await fetchMilestones(programId)
+        } else {
+          toast({
+            title: "Error",
+            description: data.error || "Failed to update milestone",
+            variant: "destructive"
+          })
+        }
+      } else {
+        const errorData = await response.json().catch(() => null)
+        toast({
+          title: "Error",
+          description: (errorData && errorData.error) || "Failed to update milestone",
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error updating milestone:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update milestone",
+        variant: "destructive"
+      })
+    }
+  }
+
   const handleDeleteMilestone = async (programId: number, milestoneId: number) => {
     if (!confirm('Are you sure you want to delete this milestone?')) {
       return
     }
 
     try {
-      const response = await fetch(`/api/coach/1/programs/${programId}/milestones?milestoneId=${milestoneId}`, {
+      const response = await fetch(`/api/coach/${coachId}/programs/${programId}/milestones?milestoneId=${milestoneId}`, {
         method: 'DELETE'
       })
 
@@ -563,6 +694,72 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
               </div>
               <Button className="w-full" onClick={handleAddProgram}>Add Program</Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Program Dialog */}
+        <Dialog open={!!editingProgram} onOpenChange={(open) => !open && setEditingProgram(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Program</DialogTitle>
+              <DialogDescription>Update program details</DialogDescription>
+            </DialogHeader>
+            {editingProgram && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="editProgramName" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Program Name</label>
+                  <Input 
+                    id="editProgramName" 
+                    placeholder="Enter program name"
+                    value={editingProgram.name}
+                    onChange={(e) => setEditingProgram({...editingProgram, name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="editProgramDescription" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Description</label>
+                  <Textarea 
+                    id="editProgramDescription" 
+                    placeholder="Enter program description"
+                    value={editingProgram.description}
+                    onChange={(e) => setEditingProgram({...editingProgram, description: e.target.value})}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="editProgramPrice" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Price ($)</label>
+                    <Input 
+                      id="editProgramPrice" 
+                      type="number" 
+                      placeholder="0.00"
+                      value={editingProgram.price}
+                      onChange={(e) => setEditingProgram({...editingProgram, price: parseFloat(e.target.value) || 0})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="editProgramDuration" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Duration (weeks)</label>
+                    <Input 
+                      id="editProgramDuration" 
+                      type="number" 
+                      placeholder="12"
+                      value={editingProgram.duration_weeks}
+                      onChange={(e) => setEditingProgram({...editingProgram, duration_weeks: parseInt(e.target.value) || 0})}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="editProgramActive"
+                    checked={editingProgram.is_active}
+                    onCheckedChange={(checked) => setEditingProgram({...editingProgram, is_active: checked as boolean})}
+                  />
+                  <label htmlFor="editProgramActive" className="text-sm font-medium">Active</label>
+                </div>
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={handleEditProgram}>Update Program</Button>
+                  <Button variant="outline" onClick={() => setEditingProgram(null)}>Cancel</Button>
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
@@ -710,8 +907,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                               onToggle={() => toggleMilestoneExpansion(milestone.id)}
                               onDelete={(milestoneId) => handleDeleteMilestone(program.id, milestoneId)}
                               onEdit={(milestoneId, newTitle, newDescription) => {
-                                // Handle edit here if needed
-                                console.log('Edit milestone:', milestoneId, newTitle, newDescription)
+                                handleEditMilestone(program.id, milestoneId, newTitle, newDescription)
                               }}
                               coachId={coachId}
                               programId={program.id.toString()}

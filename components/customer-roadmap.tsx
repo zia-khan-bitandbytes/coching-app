@@ -890,7 +890,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                                     </Badge>
                                                   </div>
                                                 )}
-                                              </div>
+                                            </div>
                                             )}
                                             
                                             {/* Mark Done Button - Only show when task can be completed */}
@@ -938,7 +938,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                               {task.files.map((file: any, fileIndex: number) => (
                                                 <div key={fileIndex} className="flex items-center justify-between p-2 bg-blue-50 rounded text-xs">
                                                   <span className="text-blue-800 truncate">{file.name}</span>
-                                                  <span className="text-blue-600">({formatFileSize(file.size)})</span>
+                                                  <span className="text-xs text-blue-600">({formatFileSize(file.size)})</span>
                                                 </div>
                                               ))}
                                             </div>

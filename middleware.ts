@@ -49,9 +49,9 @@ function checkRouteAccess(pathname: string, userRole: UserRole): boolean {
     return true
   }
 
-  // Admin routes - only super_admin can access
+  // Admin routes - super_admin and coach can access
   if (pathname.startsWith('/admin')) {
-    return false // Only super_admin can access, and we already checked that above
+    return userRole === 'super_admin' || userRole === 'coach'
   }
 
   // Coach routes - coach and super_admin can access
@@ -73,7 +73,7 @@ function checkRouteAccess(pathname: string, userRole: UserRole): boolean {
   if (pathname.startsWith('/api')) {
     // Admin API routes
     if (pathname.startsWith('/api/admin')) {
-      return false // Only super_admin can access, and we already checked that above
+      return userRole === 'super_admin' || userRole === 'coach'
     }
     
     // Coach API routes
