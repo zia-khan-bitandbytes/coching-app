@@ -1004,7 +1004,13 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                           <div className="absolute left-4 top-6 flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-sm font-semibold z-10">
                             {milestone.order_index}
                           </div>
-                          <div className="ml-16">
+                          {/* Goal Display */}
+                          <div className="absolute left-16 top-2">
+                            <Badge variant="secondary" className="text-xs font-medium">
+                              Goal: {milestone.goal_days || 0} days
+                            </Badge>
+                          </div>
+                          <div className="ml-16 mt-8">
                             <MilestoneCard
                               milestone={milestone}
                               isExpanded={expandedMilestones.has(milestone.id)}
