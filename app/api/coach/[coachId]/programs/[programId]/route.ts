@@ -64,7 +64,7 @@ export async function GET(
     
     // Get program details
     const result = await pool.query(`
-      SELECT id, name, description, price, duration_weeks, is_active, created_at
+      SELECT id, name, description, price, is_active, created_at
       FROM coaching_programs 
       WHERE id = $1 AND coach_id = $2
     `, [programId, coachId])
@@ -85,7 +85,6 @@ export async function GET(
         name: program.name,
         description: program.description,
         price: parseFloat(program.price),
-        duration_weeks: parseInt(program.duration_weeks),
         is_active: program.is_active,
         created_at: program.created_at
       }
@@ -105,7 +104,7 @@ export async function PUT(
 ) {
   try {
     const { coachId, programId } = await params
-    const { name, description, price, duration_weeks, is_active } = await request.json()
+    const { name, description, price, is_active } = await request.json()
     
     if (!coachId || !programId) {
       return NextResponse.json({ 
@@ -132,11 +131,10 @@ export async function PUT(
       SET name = COALESCE($1, name), 
           description = COALESCE($2, description), 
           price = COALESCE($3, price), 
-          duration_weeks = COALESCE($4, duration_weeks),
-          is_active = COALESCE($5, is_active)
-      WHERE id = $6
-      RETURNING id, name, description, price, duration_weeks, is_active, created_at
-    `, [name, description, price, duration_weeks, is_active, programId])
+          is_active = COALESCE($4, is_active)
+      WHERE id = $5
+      RETURNING id, name, description, price, is_active, created_at
+    `, [name, description, price, is_active, programId])
 
     const updatedProgram = result.rows[0]
     
@@ -147,7 +145,6 @@ export async function PUT(
         name: updatedProgram.name,
         description: updatedProgram.description,
         price: parseFloat(updatedProgram.price),
-        duration_weeks: parseInt(updatedProgram.duration_weeks),
         is_active: updatedProgram.is_active,
         created_at: updatedProgram.created_at
       }

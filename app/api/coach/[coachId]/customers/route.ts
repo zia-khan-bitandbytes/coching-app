@@ -38,19 +38,25 @@ export async function GET(
             cp.id,
             cp.name,
             cp.description,
-            cp.duration_weeks,
             cp.price,
             cp.is_active,
             up.status as enrollment_status,
             up.enrolled_at,
             COUNT(DISTINCT m.id) as milestones_count,
-            COUNT(DISTINCT mp.milestone_id) as completed_milestones
+            COUNT(DISTINCT mp.milestone_id) as completed_milestones,
+            CASE 
+              WHEN COUNT(DISTINCT m.id) > 0 AND COUNT(DISTINCT mp.milestone_id) = COUNT(DISTINCT m.id) 
+              THEN 'completed'
+              WHEN COUNT(DISTINCT mp.milestone_id) > 0 
+              THEN 'in_progress'
+              ELSE 'not_started'
+            END as calculated_status
           FROM user_programs up
           JOIN coaching_programs cp ON up.program_id = cp.id
           LEFT JOIN milestones m ON cp.id = m.program_id
           LEFT JOIN milestone_progress mp ON m.id = mp.milestone_id AND mp.user_id = up.user_id AND mp.completed = true
           WHERE up.user_id = $1 AND cp.coach_id = $2
-          GROUP BY cp.id, cp.name, cp.description, cp.duration_weeks, cp.price, cp.is_active, up.status, up.enrolled_at
+          GROUP BY cp.id, cp.name, cp.description, cp.price, cp.is_active, up.status, up.enrolled_at
           ORDER BY up.enrolled_at DESC
         `, [row.id, coachId])
 
@@ -58,10 +64,9 @@ export async function GET(
           id: program.id,
           name: program.name,
           description: program.description,
-          duration_weeks: program.duration_weeks,
           price: parseFloat(program.price),
           is_active: program.is_active,
-          enrollment_status: program.enrollment_status,
+          enrollment_status: program.calculated_status, // Use calculated status instead of enrollment status
           enrolled_at: program.enrolled_at,
           milestones_count: parseInt(program.milestones_count),
           completed_milestones: parseInt(program.completed_milestones)

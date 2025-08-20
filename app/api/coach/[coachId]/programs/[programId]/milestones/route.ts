@@ -28,6 +28,7 @@ export async function GET(
         m.title,
         m.description,
         m.order_index,
+        m.goal_days,
         m.created_at,
         COUNT(DISTINCT mp.user_id) as completed_count,
         COUNT(DISTINCT up.user_id) as total_enrolled
@@ -35,7 +36,7 @@ export async function GET(
       LEFT JOIN user_programs up ON up.program_id = m.program_id AND up.status = 'active'
       LEFT JOIN milestone_progress mp ON m.id = mp.milestone_id AND mp.completed = true
       WHERE m.program_id = $1
-      GROUP BY m.id, m.title, m.description, m.order_index, m.created_at
+      GROUP BY m.id, m.title, m.description, m.order_index, m.goal_days, m.created_at
       ORDER BY m.order_index
     `, [programId])
 
@@ -44,6 +45,7 @@ export async function GET(
       title: row.title,
       description: row.description,
       order_index: parseInt(row.order_index),
+      goal_days: row.goal_days,
       created_at: row.created_at,
       completed_count: parseInt(row.completed_count),
       total_enrolled: parseInt(row.total_enrolled),
@@ -71,7 +73,7 @@ export async function POST(
 ) {
   try {
     const { coachId, programId } = await params
-    const { title, description } = await request.json()
+    const { title, description, goal_days } = await request.json()
 
     // Verify the program belongs to the coach
     const programCheck = await pool.query(`
@@ -95,12 +97,12 @@ export async function POST(
     
     const nextOrderIndex = maxOrderResult.rows[0].max_order + 1
 
-    // Create new milestone with auto-incremented order_index
+    // Create new milestone with auto-incremented order_index and goal_days
     const result = await pool.query(`
-      INSERT INTO milestones (program_id, title, description, order_index)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, title, description, order_index, created_at
-    `, [programId, title, description, nextOrderIndex])
+      INSERT INTO milestones (program_id, title, description, order_index, goal_days)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, title, description, order_index, goal_days, created_at
+    `, [programId, title, description, nextOrderIndex, goal_days || null])
 
     const newMilestone = result.rows[0]
 
@@ -111,6 +113,7 @@ export async function POST(
         title: newMilestone.title,
         description: newMilestone.description,
         order_index: parseInt(newMilestone.order_index),
+        goal_days: newMilestone.goal_days,
         program_id: parseInt(programId),
         created_at: newMilestone.created_at
       }

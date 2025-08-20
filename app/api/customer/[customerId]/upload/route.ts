@@ -47,8 +47,8 @@ export async function POST(
     }
 
     const taskData = verificationResult.rows[0]
-    const coachId = taskData.coach_id
-    const programId = taskData.program_id
+    const coachId = taskData.coach_id.toString()
+    const programId = taskData.program_id.toString()
 
     // Create uploads directory if it doesn't exist
     const uploadsDir = join(process.cwd(), 'public', 'uploads')
@@ -90,30 +90,32 @@ export async function POST(
     let fileRecord
     try {
       const result = await pool.query(`
-        INSERT INTO task_files (milestone_id, file_name, original_name, file_path, file_size, file_type, uploaded_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, file_name, original_name, file_path, file_size, file_type, created_at
+        INSERT INTO task_files (task_id, user_id, filename, original_filename, file_path, file_size, mime_type, uploaded_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id, filename, original_filename, file_path, file_size, mime_type, uploaded_at
       `, [
-        milestoneId,
+        taskId,
+        customerId,
         fileName,
         originalName,
         publicUrl,
         file.size,
         file.type,
-        customerId
+        new Date()
       ])
       fileRecord = result.rows[0]
       console.log('File stored in database:', fileRecord)
     } catch (error) {
+      console.error('Database error:', error)
       // If table doesn't exist, create a simple file record
       console.log('task_files table not found, using fallback')
       fileRecord = {
         id: Date.now(),
-        original_name: originalName,
+        original_filename: originalName,
         file_size: file.size,
-        file_type: file.type,
+        mime_type: file.type,
         file_path: publicUrl,
-        created_at: new Date().toISOString()
+        uploaded_at: new Date()
       }
     }
 
@@ -143,11 +145,11 @@ export async function POST(
       // Add the new file
       const newFile = {
         id: fileRecord.id,
-        name: fileRecord.original_name,
+        name: fileRecord.original_filename,
         size: fileRecord.file_size,
-        type: fileRecord.file_type,
+        type: fileRecord.mime_type,
         url: fileRecord.file_path,
-        uploadedAt: fileRecord.created_at
+        uploadedAt: fileRecord.uploaded_at
       }
       files.push(newFile)
 
@@ -166,11 +168,11 @@ export async function POST(
       success: true,
       file: {
         id: fileRecord.id,
-        name: fileRecord.original_name,
+        name: fileRecord.original_filename,
         size: fileRecord.file_size,
-        type: fileRecord.file_type,
+        type: fileRecord.mime_type,
         url: fileRecord.file_path,
-        uploadedAt: fileRecord.created_at
+        uploadedAt: fileRecord.uploaded_at
       }
     })
 

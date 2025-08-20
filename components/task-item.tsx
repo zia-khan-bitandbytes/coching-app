@@ -8,9 +8,151 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { CheckCircle, Lock, Trash2, Edit3, Check, X, File, ExternalLink, Download } from "lucide-react"
+import { CheckCircle, Lock, Trash2, Edit3, Check, X, File, ExternalLink, Download, Upload, XCircle } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
 import { Task } from "@/lib/types"
+
+// FileUpload component for customers
+function FileUpload({ 
+  taskId, 
+  milestoneId, 
+  customerId, 
+  onFileUploaded 
+}: { 
+  taskId: number
+  milestoneId?: number
+  customerId?: string
+  onFileUploaded: (file: any) => void 
+}) {
+  const [isUploading, setIsUploading] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setSelectedFile(file)
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!selectedFile || !milestoneId || !customerId) {
+      toast({
+        title: "Error",
+        description: "Please select a file and ensure all required data is available",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      formData.append('milestoneId', milestoneId.toString())
+      formData.append('taskId', taskId.toString())
+
+      const response = await fetch(`/api/customer/${customerId}/upload`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          // Create file object for the UI
+          const newFile = {
+            id: result.file.id,
+            name: result.file.original_filename,
+            size: result.file.file_size,
+            type: result.file.mime_type,
+            url: `/api/files/${result.file.file_path}`,
+            uploadedAt: result.file.uploaded_at
+          }
+          
+          onFileUploaded(newFile)
+          setSelectedFile(null)
+          
+          toast({
+            title: "File uploaded successfully!",
+            description: `${selectedFile.name} has been uploaded.`,
+          })
+        } else {
+          throw new Error(result.error || 'Upload failed')
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Upload failed: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Upload error:', error)
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload file. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const removeSelectedFile = () => {
+    setSelectedFile(null)
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Input
+          type="file"
+          onChange={handleFileSelect}
+          accept="*/*"
+          className="text-xs"
+          disabled={isUploading}
+        />
+        {selectedFile && (
+          <button
+            onClick={removeSelectedFile}
+            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-100 rounded"
+            disabled={isUploading}
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      
+      {selectedFile && (
+        <div className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-200">
+          <File className="h-4 w-4 text-blue-500" />
+          <span className="text-xs text-blue-700 font-medium truncate flex-1">
+            {selectedFile.name}
+          </span>
+          <span className="text-xs text-gray-500">
+            ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+          </span>
+        </div>
+      )}
+      
+      <Button
+        onClick={handleUpload}
+        disabled={!selectedFile || isUploading}
+        size="sm"
+        className="w-full text-xs"
+      >
+        {isUploading ? (
+          <>
+            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1" />
+            Uploading...
+          </>
+        ) : (
+          <>
+            <Upload className="h-3 w-3 mr-1" />
+            Upload File
+          </>
+        )}
+      </Button>
+    </div>
+  )
+}
 
 interface TaskItemProps {
   task: Task
@@ -21,9 +163,10 @@ interface TaskItemProps {
   milestoneId?: number
   allowEdit?: boolean
   allTasks?: Task[]
+  customerId?: string
 }
 
-export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milestoneId, allowEdit = true, allTasks = [] }: TaskItemProps) {
+export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milestoneId, allowEdit = true, allTasks = [], customerId }: TaskItemProps) {
   // Upload functionality removed - only customers can upload files
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -301,21 +444,19 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
             <textarea
               value={editDescription}
               onChange={(e) => setEditDescription(e.target.value)}
-              className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              placeholder="Task description (optional)"
+              className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Task description"
               rows={2}
             />
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <Checkbox
                 id={`requiresUpload-${task.id}`}
                 checked={editRequiresUpload}
                 onCheckedChange={(checked) => setEditRequiresUpload(checked as boolean)}
+                className="data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600"
               />
-              <Label
-                htmlFor={`requiresUpload-${task.id}`}
-                className="text-xs font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Upload require
+              <Label htmlFor={`requiresUpload-${task.id}`} className="text-xs text-gray-600">
+                Requires file upload
               </Label>
             </div>
           </div>
@@ -325,6 +466,17 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
               <span className={`text-sm ${taskStatus === "completed" ? "line-through text-gray-500" : ""}`}>
                 {task.title}
               </span>
+              {/* Show upload requirement indicator */}
+              {task.requiresUpload && (
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                  <span className="text-xs text-orange-600 font-medium">Upload Required</span>
+                  {/* Show warning if no files uploaded */}
+                  {(!task.files || task.files.length === 0) && (
+                    <span className="text-xs text-red-500 font-medium">(No files uploaded)</span>
+                  )}
+                </div>
+              )}
             </div>
             {task.description && (
               <p className="text-xs text-gray-500 mt-1">{task.description}</p>
@@ -336,15 +488,43 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
                 <p className="text-xs font-medium text-gray-600">Uploaded Files:</p>
                 <div className="space-y-1">
                   {task.files.map((file: any, index: number) => (
-                    <div key={index} className="flex items-center gap-2 p-1 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 transition-colors group">
-                      <File className="h-3 w-3 text-blue-500" />
-                      <a
-                        href={file.url}
-                        download={file.name}
-                        className="text-xs text-blue-600 hover:text-blue-800 underline truncate max-w-32 cursor-pointer flex-1"
-                        title={`Click to download ${file.name}`}
-                        onClick={async (e) => {
-                          e.preventDefault()
+                    <div key={index} className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-200 hover:bg-blue-100 transition-colors group">
+                      {/* File type icon */}
+                      <div className="flex-shrink-0">
+                        {file.type?.startsWith('image/') ? (
+                          <div className="w-4 h-4 bg-green-100 rounded flex items-center justify-center">
+                            <span className="text-xs text-green-600">🖼️</span>
+                          </div>
+                        ) : file.type?.includes('pdf') ? (
+                          <div className="w-4 h-4 bg-red-100 rounded flex items-center justify-center">
+                            <span className="text-xs text-red-600">📄</span>
+                          </div>
+                        ) : file.type?.includes('word') || file.type?.includes('document') ? (
+                          <div className="w-4 h-4 bg-blue-100 rounded flex items-center justify-center">
+                            <span className="text-xs text-blue-600">📝</span>
+                          </div>
+                        ) : file.type?.includes('excel') || file.type?.includes('spreadsheet') ? (
+                          <div className="w-4 h-4 bg-green-100 rounded flex items-center justify-center">
+                            <span className="text-xs text-green-600">📊</span>
+                          </div>
+                        ) : (
+                          <File className="h-3 w-3 text-blue-500" />
+                        )}
+                      </div>
+                      
+                      {/* File name and info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-blue-600 font-medium truncate" title={file.name}>
+                          {file.name}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {formatFileSize(file.size)} • {file.type || 'Unknown type'}
+                        </div>
+                      </div>
+                      
+                      {/* Download button */}
+                      <button
+                        onClick={async () => {
                           console.log('Downloading file:', file)
                           console.log('File URL:', file.url)
                           console.log('File name:', file.name)
@@ -393,61 +573,7 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
                             })
                           }
                         }}
-                      >
-                        {file.name}
-                      </a>
-                      <span className="text-xs text-gray-500">
-                        ({formatFileSize(file.size)})
-                      </span>
-                      <button
-                                                                          onClick={async () => {
-                                                    console.log('Downloading file via button:', file.url)
-                                                    
-                                                    if (!file.url) {
-                                                      toast({
-                                                        title: "Error",
-                                                        description: "File URL is not available",
-                                                        variant: "destructive"
-                                                      })
-                                                      return
-                                                    }
-                                                    
-                                                    try {
-                                                      // Fetch the file
-                                                      const response = await fetch(file.url)
-                                                      if (!response.ok) {
-                                                        throw new Error(`HTTP error! status: ${response.status}`)
-                                                      }
-                                                      
-                                                      // Get the file blob
-                                                      const blob = await response.blob()
-                                                      
-                                                      // Create a download link
-                                                      const url = window.URL.createObjectURL(blob)
-                                                      const link = document.createElement('a')
-                                                      link.href = url
-                                                      link.download = file.name
-                                                      document.body.appendChild(link)
-                                                      link.click()
-                                                      document.body.removeChild(link)
-                                                      
-                                                      // Clean up the URL object
-                                                      window.URL.revokeObjectURL(url)
-                                                      
-                                                      toast({
-                                                        title: "Download started",
-                                                        description: `${file.name} is being downloaded`,
-                                                      })
-                                                    } catch (error) {
-                                                      console.error('Download error:', error)
-                                                      toast({
-                                                        title: "Download failed",
-                                                        description: "Failed to download the file. Please try again.",
-                                                        variant: "destructive"
-                                                      })
-                                                    }
-                                                  }}
-                        className="p-1 text-blue-500 hover:text-blue-700 hover:bg-blue-200 rounded transition-colors"
+                        className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-200 rounded transition-colors flex-shrink-0"
                         title={`Download ${file.name}`}
                       >
                         <Download className="h-3 w-3" />
@@ -455,6 +581,43 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+            
+            {/* File upload section for customers */}
+            {!allowEdit && task.requiresUpload && (
+              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-4 h-4 bg-orange-100 rounded flex items-center justify-center">
+                    <span className="text-xs text-orange-600">📁</span>
+                  </div>
+                  <p className="text-xs font-medium text-orange-700">Upload Required</p>
+                </div>
+                
+                {(!task.files || task.files.length === 0) ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-orange-600">
+                      This task requires you to upload a file to complete it.
+                    </p>
+                    <FileUpload 
+                      taskId={task.id}
+                      milestoneId={milestoneId}
+                      customerId={customerId}
+                      onFileUploaded={(newFile: any) => {
+                        // Update the task with the new file
+                        const updatedTask = {
+                          ...task,
+                          files: [...(task.files || []), newFile]
+                        }
+                        onUpdate?.(task.id, updatedTask)
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-xs text-green-600">
+                    ✓ Files uploaded successfully
+                  </div>
+                )}
               </div>
             )}
             {/* Debug info */}

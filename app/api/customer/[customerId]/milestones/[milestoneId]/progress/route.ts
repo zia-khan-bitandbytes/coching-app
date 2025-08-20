@@ -23,7 +23,7 @@ export async function POST(
 
     // Verify the milestone exists and customer is enrolled in the program
     const milestoneCheck = await pool.query(`
-      SELECT m.id, m.title, m.order_index, cp.name as program_name, cp.id as program_id
+      SELECT m.id, m.title, m.order_index, cp.name as program_name, cp.id as program_id, cp.coach_id
       FROM milestones m
       JOIN coaching_programs cp ON m.program_id = cp.id
       JOIN user_programs up ON cp.id = up.program_id
@@ -39,12 +39,12 @@ export async function POST(
 
     const milestone = milestoneCheck.rows[0]
 
-    // If trying to complete a milestone, validate the sequence
+    // If trying to complete a milestone, validate the sequence and task completion
     if (completed) {
       // Check if all previous milestones are completed
       if (milestone.order_index > 1) {
         const previousMilestonesCheck = await pool.query(`
-          SELECT m.id, m.order_index, mp.completed
+          SELECT m.id, m.title, m.order_index, mp.completed
           FROM milestones m
           LEFT JOIN milestone_progress mp ON m.id = mp.milestone_id AND mp.user_id = $1
           WHERE m.program_id = $2 
@@ -55,7 +55,7 @@ export async function POST(
 
         if (previousMilestonesCheck.rows.length > 0) {
           const incompleteMilestones = previousMilestonesCheck.rows
-            .map(m => ({ id: m.id, order_index: m.order_index }))
+            .map(m => ({ id: m.id, title: m.title, order_index: m.order_index }))
             .sort((a, b) => a.order_index - b.order_index)
 
           return NextResponse.json(
@@ -68,21 +68,145 @@ export async function POST(
           )
         }
       }
+
+      // Check if all tasks are completed and required files are uploaded
+      const tasksCheck = await pool.query(`
+        SELECT t.id, t.title, t.completed, t.requires_upload, t.description
+        FROM tasks t
+        WHERE t.milestone_id = $1
+        ORDER BY t.order_index
+      `, [milestoneId])
+
+      if (tasksCheck.rows.length === 0) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: `Cannot complete milestone "${milestone.title}". No tasks found.`
+          },
+          { status: 400 }
+        )
+      }
+
+      // Check each task
+      for (const task of tasksCheck.rows) {
+        if (!task.completed) {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: `Cannot complete milestone "${milestone.title}". Task "${task.title}" is not completed.`
+            },
+            { status: 400 }
+          )
+        }
+
+        // If task requires upload, check if files are uploaded
+        if (task.requires_upload) {
+          // Check if files are attached to the task description
+          if (!task.description || !task.description.includes('[FILES:')) {
+            return NextResponse.json(
+              { 
+                success: false, 
+                error: `Cannot complete milestone "${milestone.title}". Task "${task.title}" requires file upload but no files are attached.`
+              },
+              { status: 400 }
+            )
+          }
+
+          // Parse files to ensure they exist
+          try {
+            const filesMatch = task.description.match(/\[FILES:(.*?)\]$/)
+            if (filesMatch) {
+              const files = JSON.parse(filesMatch[1])
+              if (!files || files.length === 0) {
+                return NextResponse.json(
+                  { 
+                    success: false, 
+                    error: `Cannot complete milestone "${milestone.title}". Task "${task.title}" requires file upload but no files are attached.`
+                  },
+                  { status: 400 }
+                )
+              }
+            } else {
+              return NextResponse.json(
+                { 
+                  success: false, 
+                  error: `Cannot complete milestone "${milestone.title}". Task "${task.title}" requires file upload but no files are attached.`
+                },
+                { status: 400 }
+              )
+            }
+          } catch (error) {
+            return NextResponse.json(
+              { 
+                success: false, 
+                error: `Cannot complete milestone "${milestone.title}". Task "${task.title}" has invalid file data.`
+              },
+              { status: 400 }
+            )
+          }
+        }
+      }
     }
 
-    // Update or create milestone progress
-    const progressResult = await pool.query(`
-      INSERT INTO milestone_progress (user_id, milestone_id, completed, notes, completed_at)
-      VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (user_id, milestone_id) 
-      DO UPDATE SET 
-        completed = $3, 
-        notes = $4, 
-        completed_at = CASE WHEN $3 = true THEN $5 ELSE NULL END
-      RETURNING id, completed, completed_at, notes
-    `, [customerId, milestoneId, completed, notes, completed ? new Date() : null])
+    // Check if milestone progress already exists
+    const existingProgress = await pool.query(`
+      SELECT id, completed, completed_at, notes, created_at
+      FROM milestone_progress 
+      WHERE user_id = $1 AND milestone_id = $2
+    `, [customerId, milestoneId])
+
+    let progressResult
+    let isNewMilestone = false
+
+    if (existingProgress.rows.length > 0) {
+      // Update existing progress
+      progressResult = await pool.query(`
+        UPDATE milestone_progress 
+        SET 
+          completed = $3, 
+          notes = $4, 
+          completed_at = $5
+        WHERE user_id = $1 AND milestone_id = $2
+        RETURNING id, completed, completed_at, notes, created_at
+      `, [customerId, milestoneId, completed, notes, completed ? new Date().toISOString() : null])
+    } else {
+      // Create new progress - this automatically starts the milestone
+      isNewMilestone = true
+      progressResult = await pool.query(`
+        INSERT INTO milestone_progress (user_id, milestone_id, completed, notes, completed_at, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, completed, completed_at, notes, created_at
+      `, [customerId, milestoneId, completed, notes, completed ? new Date().toISOString() : null, new Date().toISOString()])
+    }
 
     const progress = progressResult.rows[0]
+
+    // If this milestone was completed, check if we should unlock the next milestone
+    if (completed) {
+      const nextMilestoneCheck = await pool.query(`
+        SELECT m.id, m.title, m.order_index
+        FROM milestones m
+        WHERE m.program_id = $1 AND m.order_index = $2
+      `, [milestone.program_id, milestone.order_index + 1])
+
+      if (nextMilestoneCheck.rows.length > 0) {
+        const nextMilestone = nextMilestoneCheck.rows[0]
+        
+        // Check if next milestone progress exists, if not create it to unlock it
+        const nextMilestoneProgress = await pool.query(`
+          SELECT id FROM milestone_progress 
+          WHERE user_id = $1 AND milestone_id = $2
+        `, [customerId, nextMilestone.id])
+
+        if (nextMilestoneProgress.rows.length === 0) {
+          // Create progress record for next milestone to unlock it
+          await pool.query(`
+            INSERT INTO milestone_progress (user_id, milestone_id, completed, notes, created_at)
+            VALUES ($1, $2, false, 'Milestone unlocked by completing previous milestone', $3)
+          `, [customerId, nextMilestone.id, new Date().toISOString()])
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -92,12 +216,16 @@ export async function POST(
         milestone_id: milestoneId,
         completed: progress.completed,
         completed_at: progress.completed_at,
-        notes: progress.notes
+        notes: progress.notes,
+        started_at: progress.created_at
       },
       milestone: {
         title: milestone.title,
-        program_name: milestone.program_name
-      }
+        program_name: milestone.program_name,
+        order_index: milestone.order_index
+      },
+      isNewMilestone,
+      nextMilestoneUnlocked: completed
     })
   } catch (error) {
     console.error('Error updating milestone progress:', error)

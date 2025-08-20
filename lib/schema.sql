@@ -25,7 +25,6 @@ CREATE TABLE IF NOT EXISTS coaching_programs (
   coach_id INTEGER REFERENCES coaches(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  duration_weeks INTEGER,
   price DECIMAL(10,2),
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -47,6 +46,7 @@ CREATE TABLE IF NOT EXISTS milestones (
   title VARCHAR(255) NOT NULL,
   description TEXT,
   order_index INTEGER NOT NULL,
+  goal_days INTEGER,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -205,13 +205,13 @@ INSERT INTO users (email, name, password, role) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Insert coach programs
-INSERT INTO coaching_programs (coach_id, name, description, duration_weeks, price) VALUES
-  ((SELECT id FROM coaches WHERE business_name = 'Business Growth Academy'), 'Startup to Scale', 'Complete guide to scaling your startup from 0 to 1000 customers', 12, 2999.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Business Growth Academy'), 'Revenue Optimization', 'Maximize your business revenue through strategic optimization', 8, 1999.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Leadership Excellence'), 'Executive Leadership', 'Develop executive-level leadership skills for C-suite positions', 10, 3499.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Leadership Excellence'), 'Team Management', 'Master the art of building and managing high-performing teams', 6, 1499.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Sales Mastery Institute'), 'B2B Sales Mastery', 'Dominate B2B sales with proven strategies and techniques', 12, 3999.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Sales Mastery Institute'), 'Sales Team Training', 'Train your sales team to achieve consistent results', 8, 2499.00)
+INSERT INTO coaching_programs (coach_id, name, description, price) VALUES
+  ((SELECT id FROM coaches WHERE business_name = 'Business Growth Academy'), 'Startup to Scale', 'Complete guide to scaling your startup from 0 to 1000 customers', 2999.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Business Growth Academy'), 'Revenue Optimization', 'Maximize your business revenue through strategic optimization', 1999.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Leadership Excellence'), 'Executive Leadership', 'Develop executive-level leadership skills for C-suite positions', 3499.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Leadership Excellence'), 'Team Management', 'Master the art of building and managing high-performing teams', 1499.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Sales Mastery Institute'), 'B2B Sales Mastery', 'Dominate B2B sales with proven strategies and techniques', 3999.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Sales Mastery Institute'), 'Sales Team Training', 'Train your sales team to achieve consistent results', 2499.00)
 ON CONFLICT DO NOTHING;
 
 -- Insert milestones for programs

@@ -17,6 +17,7 @@ import { CustomerRoadmap } from "@/components/customer-roadmap"
 import { CoachDashboard } from "@/components/coach-dashboard"
 import { RoadmapEditor } from "@/components/roadmap-editor"
 import { MemberManagement } from "@/components/member-management"
+import { DebugUser } from "@/components/debug-user"
 
 interface CoachDashboardContentProps {
   user: { id: string; email: string; name: string; role: string; coach_id?: string; business_name?: string }

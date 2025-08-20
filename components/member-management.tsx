@@ -19,7 +19,7 @@ interface Customer {
     id: string
     name: string
     description: string
-    duration_weeks: number
+    calculated_duration?: number
     price: number
     is_active: boolean
     enrollment_status: string
@@ -32,6 +32,16 @@ interface Customer {
   completed_milestones: number
   total_spent: number
   last_activity: string
+}
+
+interface Program {
+  id: string
+  name: string
+  description: string
+  calculated_duration?: number
+  price: number
+  is_active: boolean
+  created_at: string
 }
 
 export function MemberManagement() {
@@ -397,7 +407,7 @@ export function MemberManagement() {
                                 <div className="grid grid-cols-4 gap-3 text-xs text-gray-500">
                                   <div className="flex items-center space-x-1">
                                     <Calendar className="h-3 w-3" />
-                                    <span>{program.duration_weeks}w</span>
+                                    <span>{program.calculated_duration || 0}d</span>
                                   </div>
                                   <div className="flex items-center space-x-1">
                                     <DollarSign className="h-3 w-3" />

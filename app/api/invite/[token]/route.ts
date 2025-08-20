@@ -22,7 +22,6 @@ export async function GET(
         i.expires_at,
         cp.name as program_name,
         cp.description as program_description,
-        cp.duration_weeks,
         cp.price,
         u.name as coach_name,
         c.business_name,
@@ -70,7 +69,6 @@ export async function GET(
         program: {
           name: invitation.program_name,
           description: invitation.program_description,
-          duration_weeks: invitation.duration_weeks,
           price: parseFloat(invitation.price)
         },
         coach: {

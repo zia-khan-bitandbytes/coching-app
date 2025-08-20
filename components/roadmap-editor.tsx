@@ -25,8 +25,8 @@ interface Program {
   name: string
   description: string
   price: number
-  duration_weeks: number
   is_active: boolean
+  calculated_duration?: number // Calculated from milestone goal_days
 }
 
 interface MilestoneWithStats extends Milestone {
@@ -43,6 +43,7 @@ interface ProgramWithMilestones extends Program {
   newMilestoneForm: {
     title: string
     description: string
+    goal_days: string
   }
 }
 
@@ -63,15 +64,15 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
   const [selectedProgramId, setSelectedProgramId] = useState<number | null>(null)
   const [modalMilestoneForm, setModalMilestoneForm] = useState({
     title: '',
-    description: ''
+    description: '',
+    goal_days: ''
   })
 
   // Form states
   const [programForm, setProgramForm] = useState({
     name: '',
     description: '',
-    price: '',
-    duration_weeks: ''
+    price: ''
   })
 
   useEffect(() => {
@@ -95,7 +96,8 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
             isAddingMilestone: false,
             newMilestoneForm: {
               title: '',
-              description: ''
+              description: '',
+              goal_days: ''
             }
           }))
           
@@ -140,9 +142,14 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
             tasks: milestone.tasks || []
           }))
           
+          // Calculate total program duration from milestone goal days
+          const totalDuration = formattedMilestones.reduce((sum: number, milestone: any) => {
+            return sum + (milestone.goal_days || 0)
+          }, 0)
+          
           setPrograms(prev => prev.map(program => 
             program.id === programId 
-              ? { ...program, milestones: formattedMilestones }
+              ? { ...program, milestones: formattedMilestones, calculated_duration: totalDuration }
               : program
           ))
         }
@@ -190,7 +197,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
     }
 
     // Validate required fields
-    if (!programForm.name.trim() || !programForm.description.trim() || !programForm.price || !programForm.duration_weeks) {
+    if (!programForm.name.trim() || !programForm.description.trim() || !programForm.price) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -207,8 +214,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
           coach_id: coachId,
           name: programForm.name.trim(),
           description: programForm.description.trim(),
-          price: parseFloat(programForm.price),
-          duration_weeks: parseInt(programForm.duration_weeks)
+          price: parseFloat(programForm.price)
         })
       })
 
@@ -220,7 +226,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
             description: "Program created successfully"
           })
           setIsAddProgramOpen(false)
-          setProgramForm({ name: '', description: '', price: '', duration_weeks: '' })
+          setProgramForm({ name: '', description: '', price: '' })
           fetchPrograms()
         } else {
           toast({
@@ -255,7 +261,8 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
             isAddingMilestone: !program.isAddingMilestone,
             newMilestoneForm: {
               title: '',
-              description: ''
+              description: '',
+              goal_days: ''
             }
           }
         : program
@@ -280,13 +287,13 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
     const program = programs.find(p => p.id === programId)
     if (!program) return
 
-    const { title, description } = program.newMilestoneForm
+    const { title, description, goal_days } = program.newMilestoneForm
     
     console.log('Adding milestone:', { programId, title, description })
     console.log('Timestamp:', new Date().toISOString())
 
     // Validate required fields
-    if (!title.trim() || !description.trim()) {
+    if (!title.trim() || !description.trim() || !goal_days.trim()) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -302,7 +309,8 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
-          description: description.trim()
+          description: description.trim(),
+          goal_days: parseInt(goal_days)
         })
       })
 
@@ -322,7 +330,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
               ? { 
                   ...p, 
                   isAddingMilestone: false,
-                  newMilestoneForm: { title: '', description: '' }
+                  newMilestoneForm: { title: '', description: '', goal_days: '' }
                 }
               : p
           ))
@@ -353,10 +361,10 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
   const handleModalAddMilestone = async () => {
     if (!selectedProgramId) return
 
-    const { title, description } = modalMilestoneForm
+    const { title, description, goal_days } = modalMilestoneForm
     
     // Validate required fields
-    if (!title.trim() || !description.trim()) {
+    if (!title.trim() || !description.trim() || !goal_days.trim()) {
       toast({
         title: "Error",
         description: "Please fill in all required fields",
@@ -371,7 +379,8 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
-          description: description.trim()
+          description: description.trim(),
+          goal_days: parseInt(goal_days)
         })
       })
 
@@ -384,7 +393,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
           })
           
           // Reset modal form and close modal
-          setModalMilestoneForm({ title: '', description: '' })
+          setModalMilestoneForm({ title: '', description: '', goal_days: '' })
           setIsAddMilestoneModalOpen(false)
           setSelectedProgramId(null)
           
@@ -551,16 +560,6 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                     onChange={(e) => setProgramForm({...programForm, price: e.target.value})}
                   />
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="programDuration" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">Duration (weeks)</label>
-                  <Input 
-                    id="programDuration" 
-                    type="number" 
-                    placeholder="12"
-                    value={programForm.duration_weeks}
-                    onChange={(e) => setProgramForm({...programForm, duration_weeks: e.target.value})}
-                  />
-                </div>
               </div>
               <Button className="w-full" onClick={handleAddProgram}>Add Program</Button>
             </div>
@@ -590,7 +589,7 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline">${program.price}</Badge>
-                  <Badge variant="secondary">{program.duration_weeks} weeks</Badge>
+                  <Badge variant="secondary">{program.calculated_duration || 0} days</Badge>
                   <Badge variant="outline">{program.milestones.length} milestones</Badge>
                   <Button 
                     variant="ghost" 
@@ -666,6 +665,15 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                             placeholder="Enter milestone description"
                             value={program.newMilestoneForm.description}
                             onChange={(e) => updateMilestoneForm(program.id, 'description', e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Goal Days</label>
+                          <Input 
+                            type="number"
+                            placeholder="e.g., 30"
+                            value={program.newMilestoneForm.goal_days}
+                            onChange={(e) => updateMilestoneForm(program.id, 'goal_days', e.target.value)}
                           />
                         </div>
                       </div>
@@ -773,6 +781,16 @@ export function RoadmapEditor({ coachId }: RoadmapEditorProps = {}) {
                       rows={3}
                       value={modalMilestoneForm.description}
                       onChange={(e) => setModalMilestoneForm(prev => ({ ...prev, description: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Goal Days</label>
+                    <Input 
+                      type="number"
+                      placeholder="e.g., 30"
+                      className="mt-1"
+                      value={modalMilestoneForm.goal_days}
+                      onChange={(e) => setModalMilestoneForm(prev => ({ ...prev, goal_days: e.target.value }))}
                     />
                   </div>
                 </div>

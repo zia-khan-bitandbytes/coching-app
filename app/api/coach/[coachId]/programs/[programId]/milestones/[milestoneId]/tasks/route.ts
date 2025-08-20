@@ -26,41 +26,68 @@ export async function GET(
     // Get tasks for the specific milestone
     const tasksResult = await pool.query(`
       SELECT 
-        id,
-        title,
-        description,
-        completed,
-        order_index,
-        requires_upload,
-        created_at,
-        completed_at
-      FROM tasks
-      WHERE milestone_id = $1
-      ORDER BY order_index
+        t.id,
+        t.title,
+        t.description,
+        t.completed,
+        t.order_index,
+        t.requires_upload,
+        t.created_at,
+        t.completed_at
+      FROM tasks t
+      WHERE t.milestone_id = $1
+      ORDER BY t.order_index
     `, [milestoneId])
 
-    const tasks = tasksResult.rows.map(row => {
-      // Parse files from description if they exist
+    // Get files for each task
+    const tasks = await Promise.all(tasksResult.rows.map(async (row) => {
+      // Fetch files from task_files table
       let files = []
-      let cleanDescription = row.description
-      
-      if (row.description && row.description.includes('[FILES:')) {
-        try {
-          const filesMatch = row.description.match(/\[FILES:(.*?)\]$/)
-          if (filesMatch) {
-            files = JSON.parse(filesMatch[1])
-            // Remove the files section from description
-            cleanDescription = row.description.replace(/\n\n\[FILES:.*?\]$/, '')
+      try {
+        const filesResult = await pool.query(`
+          SELECT 
+            id,
+            file_name,
+            original_name,
+            file_path,
+            file_size,
+            file_type,
+            uploaded_by,
+            created_at
+          FROM task_files 
+          WHERE task_id = $1
+          ORDER BY created_at DESC
+        `, [row.id])
+        
+        files = filesResult.rows.map(fileRow => ({
+          id: fileRow.id,
+          name: fileRow.original_name,
+          size: parseInt(fileRow.file_size),
+          type: fileRow.file_type,
+          url: `/api/files/${fileRow.file_path}`,
+          uploadedAt: fileRow.created_at
+        }))
+      } catch (error) {
+        console.error('Error fetching files for task:', row.id, error)
+        // If task_files table doesn't exist, try to parse from description as fallback
+        if (row.description && row.description.includes('[FILES:')) {
+          try {
+            const filesMatch = row.description.match(/\[FILES:(.*?)\]$/)
+            if (filesMatch) {
+              files = JSON.parse(filesMatch[1])
+              // Remove the files section from description
+              row.description = row.description.replace(/\n\n\[FILES:.*?\]$/, '')
+            }
+          } catch (parseError) {
+            console.error('Error parsing files from description:', parseError)
           }
-        } catch (error) {
-          console.error('Error parsing files from description:', error)
         }
       }
       
       return {
         id: row.id,
         title: row.title,
-        description: cleanDescription,
+        description: row.description,
         completed: row.completed,
         order_index: parseInt(row.order_index),
         milestone_id: parseInt(milestoneId),
@@ -69,7 +96,7 @@ export async function GET(
         completed_at: row.completed_at,
         files: files
       }
-    })
+    }))
 
     return NextResponse.json({
       success: true,
