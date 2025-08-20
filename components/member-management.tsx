@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,7 +20,7 @@ interface Customer {
     id: string
     name: string
     description: string
-    calculated_duration?: number
+    duration_weeks: number
     price: number
     is_active: boolean
     enrollment_status: string
@@ -38,14 +39,17 @@ interface Program {
   id: string
   name: string
   description: string
-  calculated_duration?: number
+  duration_weeks: number
   price: number
   is_active: boolean
   created_at: string
+  members_count: number
+  total_revenue: number
 }
 
 export function MemberManagement() {
   const { toast } = useToast()
+  const router = useRouter()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [programs, setPrograms] = useState<Program[]>([])
   const [coachId, setCoachId] = useState<string>("")
@@ -87,10 +91,8 @@ export function MemberManagement() {
           fetchPrograms(user.coach_id)
         } else {
           console.log('MemberManagement: coach user but no coach_id found')
-          console.log('MemberManagement: trying to use user.id as coach_id:', user.id)
-          setCoachId(user.id)
-          fetchCustomers(user.id)
-          fetchPrograms(user.id)
+          console.log('MemberManagement: user needs to have a coach record created')
+          setIsLoading(false)
         }
       } else {
         console.log('MemberManagement: user is not a coach, role:', user.role)
@@ -116,6 +118,18 @@ export function MemberManagement() {
         const data = await response.json()
         if (data.success) {
           setPrograms(data.programs)
+          
+          // Auto-redirect to program creation if no programs exist
+          if (data.programs.length === 0) {
+            toast({
+              title: "No Programs Found",
+              description: "Redirecting you to create your first program...",
+              variant: "default"
+            })
+            setTimeout(() => {
+              router.push('/admin/roadmap-editor')
+            }, 2000) // 2 second delay to show the toast
+          }
         }
       }
     } catch (error) {
@@ -172,7 +186,20 @@ export function MemberManagement() {
   }
 
   const handleSendInvitation = async () => {
+    console.log('handleSendInvitation called with coachId:', coachId);
+    
+    if (!coachId) {
+      console.error('No coach ID available');
+      toast({
+        title: "Error",
+        description: "Coach profile not found. Please contact support.",
+        variant: "destructive"
+      })
+      return
+    }
+    
     if (!invitationData.email || !invitationData.name || !invitationData.program_id) {
+      console.error('Missing required fields:', invitationData);
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -196,18 +223,38 @@ export function MemberManagement() {
     const cleanEmail = invitationData.email.trim()
     const cleanName = invitationData.name.trim()
 
+    // Show loading state
+    toast({
+      title: "Sending invitation...",
+      description: "Please wait while we send the invitation email.",
+    })
+
     try {
+      console.log('Sending invitation with data:', {
+        email: cleanEmail,
+        name: cleanName,
+        program_id: invitationData.program_id,
+        coachId
+      })
+
       const response = await fetch(`/api/coach/${coachId}/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: invitationData.email,
-          name: invitationData.name,
+          email: cleanEmail,
+          name: cleanName,
           program_id: invitationData.program_id
         })
       })
 
+      console.log('Invitation response status:', response.status)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json()
+      console.log('Invitation response data:', data)
 
       if (data.success) {
         setInvitationLink(data.invitationLink)
@@ -217,6 +264,7 @@ export function MemberManagement() {
           description: "Invitation email sent successfully!",
         })
       } else {
+        console.error('Invitation failed:', data.error)
         toast({
           title: "Error",
           description: data.error || 'Failed to send invitation',
@@ -224,9 +272,11 @@ export function MemberManagement() {
         })
       }
     } catch (error) {
+      console.error('Invitation error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       toast({
         title: "Error",
-        description: 'Failed to send invitation',
+        description: `Failed to send invitation: ${errorMessage}`,
         variant: "destructive"
       })
     }
@@ -257,13 +307,30 @@ export function MemberManagement() {
     setCopied(false)
   }
 
+  // Show error if coach doesn't have a coach record
+  if (!isLoading && !coachId) {
+    return (
+      <div className="space-y-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center py-8">
+              <h2 className="text-2xl font-bold mb-2">Coach Profile Not Found</h2>
+              <p className="text-muted-foreground mb-4">
+                Your coach profile needs to be set up. This usually happens automatically when you sign up.
+              </p>
+              <p className="text-muted-foreground">
+                Please contact support if this issue persists.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Member Management</h1>
-          <p className="text-gray-600 mt-1">Manage your coaching clients and their progress</p>
-        </div>
+      <div className="flex justify-end">
         <Dialog open={isInvitationDialogOpen} onOpenChange={setIsInvitationDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -278,56 +345,83 @@ export function MemberManagement() {
             </DialogHeader>
             
             {!showInvitationLink ? (
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="invite-name">Full Name</Label>
-                  <Input
-                    id="invite-name"
-                    value={invitationData.name}
-                    onChange={(e) => setInvitationData({ ...invitationData, name: e.target.value })}
-                    placeholder="Enter full name"
-                  />
+                              <div className="space-y-4">
+                  {programs.length === 0 ? (
+                    <div className="text-center py-6">
+                      <div className="mb-4">
+                        <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                        <h3 className="text-lg font-semibold mb-2">No Programs Available</h3>
+                        <p className="text-muted-foreground mb-4">
+                          You need to create a program before you can send invitations to customers.
+                        </p>
+                      </div>
+                      <Button 
+                        onClick={() => {
+                          setIsInvitationDialogOpen(false)
+                          router.push('/admin/roadmap-editor')
+                          toast({
+                            title: "Redirecting to Program Editor",
+                            description: "You'll be taken to the roadmap editor to create your first program.",
+                            variant: "default"
+                          })
+                        }} 
+                        className="w-full"
+                      >
+                        Create Program
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <Label htmlFor="invite-name">Full Name</Label>
+                        <Input
+                          id="invite-name"
+                          value={invitationData.name}
+                          onChange={(e) => setInvitationData({ ...invitationData, name: e.target.value })}
+                          placeholder="Enter full name"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="invite-email">Email</Label>
+                        <Input
+                          id="invite-email"
+                          type="email"
+                          value={invitationData.email}
+                          onChange={(e) => setInvitationData({ ...invitationData, email: e.target.value })}
+                          placeholder="Enter customer email"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="invite-program">Program</Label>
+                        <Select value={invitationData.program_id} onValueChange={(value) => setInvitationData({ ...invitationData, program_id: value })}>
+                          <SelectTrigger id="invite-program">
+                            <SelectValue placeholder="Select a program" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {programs.map((program) => (
+                              <SelectItem key={program.id} value={program.id}>
+                                {program.name} - ${program.price}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Button 
+                        onClick={() => {
+                          console.log('Send invitation button clicked');
+                          console.log('Current invitation data:', invitationData);
+                          console.log('Coach ID:', coachId);
+                          console.log('Programs available:', programs.length);
+                          handleSendInvitation();
+                        }} 
+                        className="w-full"
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Send Invitation Email
+                      </Button>
+                    </>
+                  )}
                 </div>
-                <div>
-                  <Label htmlFor="invite-email">Email</Label>
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    value={invitationData.email}
-                    onChange={(e) => setInvitationData({ ...invitationData, email: e.target.value })}
-                    placeholder="Enter customer email"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="invite-program">Program</Label>
-                  <Select value={invitationData.program_id} onValueChange={(value) => setInvitationData({ ...invitationData, program_id: value })}>
-                    <SelectTrigger id="invite-program">
-                      <SelectValue placeholder="Select a program" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {programs.length > 0 ? (
-                        programs.map((program) => (
-                          <SelectItem key={program.id} value={program.id}>
-                            {program.name} - ${program.price}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="" disabled>
-                          No programs available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button 
-                  onClick={handleSendInvitation} 
-                  className="w-full"
-                  disabled={programs.length === 0}
-                >
-                  <Mail className="h-4 w-4 mr-2" />
-                  {programs.length === 0 ? 'No Programs Available' : 'Send Invitation Email'}
-                </Button>
-              </div>
             ) : (
               <div className="space-y-4">
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -438,7 +532,7 @@ export function MemberManagement() {
                                 <div className="grid grid-cols-4 gap-3 text-xs text-gray-500">
                                   <div className="flex items-center space-x-1">
                                     <Calendar className="h-3 w-3" />
-                                    <span>{program.calculated_duration || 0}d</span>
+                                    <span>{program.duration_weeks}w</span>
                                   </div>
                                   <div className="flex items-center space-x-1">
                                     <DollarSign className="h-3 w-3" />
@@ -487,10 +581,28 @@ export function MemberManagement() {
             <div className="text-center py-8">
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No customers yet</h3>
-              <p className="text-gray-600 mb-4">You haven't enrolled any customers in your programs yet.</p>
-              <Button onClick={() => setIsInvitationDialogOpen(true)}>
+              <p className="text-gray-600 mb-4">
+                {programs.length === 0 
+                  ? "You need to create a program before you can invite customers."
+                  : "You haven't enrolled any customers in your programs yet."
+                }
+              </p>
+              <Button 
+                onClick={() => {
+                  if (programs.length === 0) {
+                    router.push('/admin/roadmap-editor')
+                    toast({
+                      title: "Redirecting to Program Editor",
+                      description: "You'll be taken to the roadmap editor to create your first program.",
+                      variant: "default"
+                    })
+                  } else {
+                    setIsInvitationDialogOpen(true)
+                  }
+                }}
+              >
                 <Mail className="h-4 w-4 mr-2" />
-                Send Your First Invitation
+                {programs.length === 0 ? 'Create Program First' : 'Send Your First Invitation'}
               </Button>
             </div>
           )}

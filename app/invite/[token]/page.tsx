@@ -21,7 +21,7 @@ interface InvitationData {
   program: {
     name: string
     description: string
-    calculated_duration?: number
+    duration_weeks: number
     price: number
   }
   coach: {
@@ -211,7 +211,7 @@ export default function InvitePage() {
               <div className="flex gap-4 text-sm text-gray-500">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  <span>{invitation.program.calculated_duration || 0} days</span>
+                  <span>{invitation.program.duration_weeks} weeks</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span>${invitation.program.price}</span>

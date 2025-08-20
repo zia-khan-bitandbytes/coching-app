@@ -32,11 +32,8 @@ interface Program {
   id: string
   name: string
   description: string
-  calculated_duration?: number
+  duration_weeks: number
   price: number
-  is_active: boolean
-  created_at: string
-  coach_name: string
   enrolled_customers: number
 }
 
@@ -258,7 +255,7 @@ export function AdminDashboard() {
                       {programs.map((program) => (
                         <TableRow key={program.id}>
                           <TableCell className="font-medium">{program.name}</TableCell>
-                          <TableCell>{program.calculated_duration || 0} days</TableCell>
+                          <TableCell>{program.duration_weeks} weeks</TableCell>
                           <TableCell>${program.price}</TableCell>
                           <TableCell>{program.enrolled_customers}</TableCell>
                           <TableCell>${(program.price * program.enrolled_customers).toLocaleString()}</TableCell>

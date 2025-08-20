@@ -109,18 +109,7 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
   // Check if all tasks are completed for button state
   const areAllTasksCompleted = () => {
     if (tasks.length === 0) return false
-    
-    return tasks.every(task => {
-      const isCompleted = task.completed || task.status === "completed"
-      
-      // If task requires upload, check if files are uploaded
-      if (task.requiresUpload) {
-        const hasFiles = task.files && task.files.length > 0
-        return isCompleted && hasFiles
-      }
-      
-      return isCompleted
-    })
+    return tasks.every(task => task.completed || task.status === "completed")
   }
 
   // Check if milestone is unlocked (previous milestones are completed)
@@ -221,7 +210,34 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
 
   const handleSaveEdit = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (onEdit && editTitle.trim()) {
+    if (!editTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Milestone title is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (editTitle.length > 50) {
+      toast({
+        title: "Error",
+        description: "Milestone title must be 50 characters or less",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (editDescription.length > 250) {
+      toast({
+        title: "Error",
+        description: "Milestone description must be 250 characters or less",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (onEdit) {
       onEdit(milestone.id, editTitle.trim(), editDescription.trim())
       setIsEditing(false)
     }
@@ -290,31 +306,40 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
             )}
             {isEditing ? (
               <div className="flex-1 space-y-2">
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full text-lg font-semibold border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Milestone title"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <textarea
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  placeholder="Milestone description"
-                  rows={2}
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full text-lg font-semibold border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Milestone title"
+                    onClick={(e) => e.stopPropagation()}
+                    maxLength={50}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Max 50 characters</span>
+                    <span>{editTitle.length}/50</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="Milestone description"
+                    rows={2}
+                    onClick={(e) => e.stopPropagation()}
+                    maxLength={250}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Max 250 characters</span>
+                    <span>{editDescription.length}/250</span>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <CardTitle className="text-lg">{milestone.title}</CardTitle>
-                {milestone.goal_days && (
-                  <Badge variant="outline" className="text-xs">
-                    Goal: {milestone.goal_days} days
-                  </Badge>
-                )}
                 {isMilestoneLocked() && (
                   <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                     Locked - Complete previous milestone first
@@ -461,7 +486,6 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                       milestoneId={milestone.id}
                       allowEdit={allowTaskCreation}
                       allTasks={tasks}
-                      customerId={customerId}
                     />
                   </div>
                 ))}
@@ -478,69 +502,22 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
               </div>
             )}
             
-            {/* Debug: Always show a test button for milestone completion */}
-            {customerId && (
-              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-xs text-yellow-700 mb-2">Debug Info:</p>
-                <p className="text-xs text-yellow-600">Status: {milestone.status}</p>
-                <p className="text-xs text-yellow-600">Locked: {isMilestoneLocked() ? 'Yes' : 'No'}</p>
-                <p className="text-xs text-yellow-600">All Tasks Completed: {areAllTasksCompleted() ? 'Yes' : 'No'}</p>
-                <p className="text-xs text-yellow-600">Tasks Count: {tasks.length}</p>
-                <button
-                  onClick={handleMarkMilestoneComplete}
-                  className="mt-2 px-3 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600"
-                >
-                  Test: Mark Complete
-                </button>
-              </div>
-            )}
-            
             {/* Mark Milestone Complete Button - Only show for customers when milestone is not already completed and unlocked */}
-            {(() => {
-              console.log('=== Milestone Completion Button Debug ===')
-              console.log('customerId:', customerId)
-              console.log('milestone.status:', milestone.status)
-              console.log('isMilestoneLocked():', isMilestoneLocked())
-              console.log('areAllTasksCompleted():', areAllTasksCompleted())
-              console.log('tasks:', tasks)
-              console.log('tasks.length:', tasks.length)
-              
-              return customerId && milestone.status !== "completed" && !isMilestoneLocked()
-            })() && (
+            {customerId && milestone.status !== "completed" && !isMilestoneLocked() && (
               <div className="flex flex-col items-center mt-6 pt-4 border-t border-gray-200">
                 {/* Task completion progress indicator */}
                 <div className="mb-3 text-center">
                   <div className="text-sm text-gray-600 mb-1">
-                    Task Progress: {tasks.filter(task => {
-                      const isCompleted = task.completed || task.status === "completed"
-                      if (task.requiresUpload) {
-                        const hasFiles = task.files && task.files.length > 0
-                        return isCompleted && hasFiles
-                      }
-                      return isCompleted
-                    }).length} of {tasks.length} completed
+                    Task Progress: {tasks.filter(task => task.completed || task.status === "completed").length} of {tasks.length} completed
                   </div>
                   <div className="w-48 bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                       style={{ 
-                        width: `${tasks.length > 0 ? (tasks.filter(task => {
-                          const isCompleted = task.completed || task.status === "completed"
-                          if (task.requiresUpload) {
-                            const hasFiles = task.files && task.files.length > 0
-                            return isCompleted && hasFiles
-                          }
-                          return isCompleted
-                        }).length / tasks.length) * 100 : 0}%` 
+                        width: `${tasks.length > 0 ? (tasks.filter(task => task.completed || task.status === "completed").length / tasks.length) * 100 : 0}%` 
                       }}
                     ></div>
                   </div>
-                  {/* Show upload requirements */}
-                  {tasks.some(task => task.requiresUpload) && (
-                    <div className="mt-2 text-xs text-orange-600">
-                      ⚠️ Some tasks require file uploads to complete
-                    </div>
-                  )}
                 </div>
                 <button
                   onClick={handleMarkMilestoneComplete}
@@ -568,41 +545,6 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
                     </>
                   )}
                 </button>
-                {/* Show what's needed to complete */}
-                {!areAllTasksCompleted() && (
-                  <div className="mt-2 text-xs text-gray-500 text-center max-w-xs">
-                    {(() => {
-                      const incompleteTasks = tasks.filter(task => {
-                        const isCompleted = task.completed || task.status === "completed"
-                        if (task.requiresUpload) {
-                          const hasFiles = task.files && task.files.length > 0
-                          return !(isCompleted && hasFiles)
-                        }
-                        return !isCompleted
-                      })
-                      
-                      if (incompleteTasks.length === 0) return null
-                      
-                      const needsUpload = incompleteTasks.filter(task => 
-                        task.requiresUpload && (!task.files || task.files.length === 0)
-                      )
-                      const needsCompletion = incompleteTasks.filter(task => 
-                        !(task.completed || task.status === "completed")
-                      )
-                      
-                      let message = ""
-                      if (needsCompletion.length > 0) {
-                        message += `Complete ${needsCompletion.length} task${needsCompletion.length > 1 ? 's' : ''}`
-                      }
-                      if (needsUpload.length > 0) {
-                        if (message) message += " and "
-                        message += `upload files for ${needsUpload.length} task${needsUpload.length > 1 ? 's' : ''}`
-                      }
-                      
-                      return message
-                    })()}
-                  </div>
-                )}
               </div>
             )}
             
