@@ -71,11 +71,17 @@ export async function POST(
 
       // Check if all tasks are completed and required files are uploaded
       const tasksCheck = await pool.query(`
-        SELECT t.id, t.title, t.completed, t.requires_upload, t.description
+        SELECT 
+          t.id, 
+          t.title, 
+          t.requires_upload, 
+          t.description,
+          COALESCE(tp.completed, false) as completed
         FROM tasks t
-        WHERE t.milestone_id = $1
+        LEFT JOIN task_progress tp ON t.id = tp.task_id AND tp.user_id = $1
+        WHERE t.milestone_id = $2
         ORDER BY t.order_index
-      `, [milestoneId])
+      `, [customerId, milestoneId])
 
       if (tasksCheck.rows.length === 0) {
         return NextResponse.json(
