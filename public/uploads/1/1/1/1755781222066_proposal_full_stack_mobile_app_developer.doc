@@ -1,0 +1,100 @@
+﻿
+            <!DOCTYPE html>
+            <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                  xmlns:w='urn:schemas-microsoft-com:office:word' 
+                  xmlns='http://www.w3.org/TR/REC-html40'>
+            <head>
+                <meta charset="UTF-8">
+                <title>Full-Stack Mobile App Developer</title>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.5; font-size: 12pt; }
+                    h1 { color: #2c3e50; font-size: 16pt; }
+                    .header { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ddd; }
+                    table { border-collapse: collapse; width: 100%; }
+                    th, td { border: 1px solid #ddd; padding: 8px; }
+                    th { background-color: #f2f2f2; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Full-Stack Mobile App Developer</h1>
+                    <p><strong>Client:</strong> BNB</p>
+                    <p><strong>Status:</strong> Lost</p>
+                    <p><strong>Date:</strong> June 26, 2025</p>
+                </div>
+                
+                                
+                                
+                                
+            <div class="mb-4">
+                <h5 class="fw-bold text-decoration-underline text-dark">Introduction</h5>
+                
+            <p>We are delighted to present this proposal to <strong></strong>. 
+            Based on the initial requirements, we’ve outlined the following understanding and approach:</p>
+            <ul>
+                <li><strong>Goals:</strong> Build a cross-platform streaming app from scratch, including backend architecture, API integrations, calendar sync, and push notifications.</li>
+                <li><strong>Scope:</strong> Backend architecture, API integrations (e.g., TMDB, JustWatch), calendar sync, push notifications, smart device SDKs (like Chromecast, AirPlay, or Alexa), scalable infrastructure, user-friendly interfaces</li>
+            </ul>
+        
+            </div>
+        
+
+            <div class="mb-4">
+                <h5 class="fw-bold text-decoration-underline text-dark">Proposed Solution</h5>
+                
+            <p>To meet your objectives, we propose a solution built using the following technologies:</p>
+            <ul>
+                <li>JustWatch</li><li>TMDB</li><li>AirPlay</li><li>React Native</li><li>Chromecast</li><li>Alexa</li><li>Flutter</li>
+            </ul>
+            <p>This solution will follow modern software engineering practices, with focus on scalability, performance, and maintainability.</p>
+        
+            </div>
+        
+
+            <div class="mb-4">
+                <h5 class="fw-bold text-decoration-underline text-dark">Recommended Team</h5>
+                <ul class="list-group"><li class="list-group-item"><strong>Aqsa Altaf</strong> (software engineer) – 6 yrs experience in react</li><li class="list-group-item"><strong>Syeda Ghazia Hassan</strong> (Final-year computer science student) – 4 yrs experience in react</li><li class="list-group-item"><strong>Areeba Shahzadi Khan</strong> (Final -year Computer Science student at FAST NUCES Lahore) – 4 yrs experience in react</li></ul>
+            </div>
+        
+
+            <div class="mb-4">
+                <h5 class="fw-bold text-decoration-underline text-dark">Relevant Experience</h5>
+                <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card border-info shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title fw-bold">SmartTrack</h6>
+                        <p class="card-text">A cross-platform task management app with real-time collaboration, reminders, and productivity analytics — built using Flutter and Firebase.</p>
+                        <small class="text-muted">Relevance Score: 0.1 | Cosine: 0.08 | Keyword Match: 1</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <div class="card border-info shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title fw-bold">Mobile app for Android users</h6>
+                        <p class="card-text">A feature-rich Android mobile application designed to enhance user experience through intuitive UI and responsive design. Built using native Android technologies.</p>
+                        <small class="text-muted">Relevance Score: 0.04 | Cosine: 0.04 | Keyword Match: 0</small>
+                    </div>
+                </div>
+            </div>
+            </div>
+            </div>
+        
+
+            <div class="mb-4">
+                <h5 class="fw-bold text-decoration-underline text-dark">Proposed Timeline</h5>
+                
+            <div class="alert alert-info">
+                
+            </div>
+        
+            </div>
+        
+                            
+                            
+                            
+            </body>
+            </html>
+        

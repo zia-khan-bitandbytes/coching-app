@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS coaching_programs (
   name VARCHAR(255) NOT NULL,
   description TEXT,
   price DECIMAL(10,2),
+  duration_days INTEGER DEFAULT 30,  -- Added for one-time payment tracking
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

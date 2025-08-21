@@ -68,7 +68,7 @@ export function RoleBasedDashboard({ user }: RoleBasedDashboardProps) {
         return <CoachDashboard coachId={user.coach_id} />
       case 'members':
         console.log('CoachDashboard: rendering MemberManagement component')
-        return <MemberManagement />
+        return <MemberManagement coachId={user.coach_id} />
       case 'roadmap-editor':
         return user.coach_id ? <RoadmapEditor coachId={user.coach_id} /> : (
           <div className="text-center py-8">

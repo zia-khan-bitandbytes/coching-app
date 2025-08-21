@@ -7,7 +7,8 @@ interface User {
   id: string
   email: string
   name: string
-  password: string
+  password?: string
+  password_hash?: string
   role: 'coach' | 'customer' | 'super_admin'
   created_at: string
   coach_id?: string
@@ -50,8 +51,16 @@ export async function POST(request: NextRequest) {
 
     const user = result.rows[0] as User & { coach_id?: string; business_name?: string }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, user.password)
+    // Verify password - check both password and password_hash columns
+    const userPassword = user.password || user.password_hash
+    if (!userPassword) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+    
+    const isValidPassword = await bcrypt.compare(password, userPassword)
     if (!isValidPassword) {
       return NextResponse.json(
         { error: 'Invalid email or password' },

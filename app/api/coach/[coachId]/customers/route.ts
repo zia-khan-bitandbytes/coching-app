@@ -24,13 +24,12 @@ export async function GET(
         COUNT(DISTINCT up.program_id) as total_programs,
         COUNT(DISTINCT CASE WHEN up.status = 'active' THEN up.program_id END) as active_programs,
         COUNT(DISTINCT mp.milestone_id) as completed_milestones,
-        COALESCE(SUM(p.amount), 0) as total_spent,
+        0 as total_spent,
         MAX(up.enrolled_at) as last_activity
       FROM users u
       JOIN coach_customers cc ON u.id = cc.customer_id
       LEFT JOIN user_programs up ON u.id = up.user_id
       LEFT JOIN milestone_progress mp ON u.id = mp.user_id AND mp.completed = true
-      LEFT JOIN payments p ON u.id = p.user_id AND p.status = 'completed'
       WHERE cc.coach_id = $1
       GROUP BY u.id, u.name, u.email
       ORDER BY u.name
@@ -46,7 +45,6 @@ export async function GET(
             cp.name,
             cp.description,
             cp.price,
-            cp.is_active,
             up.status as enrollment_status,
             up.enrolled_at,
             COUNT(DISTINCT m.id) as milestones_count,
@@ -63,7 +61,7 @@ export async function GET(
           LEFT JOIN milestones m ON cp.id = m.program_id
           LEFT JOIN milestone_progress mp ON m.id = mp.milestone_id AND mp.user_id = up.user_id AND mp.completed = true
           WHERE up.user_id = $1 AND cp.coach_id = $2
-          GROUP BY cp.id, cp.name, cp.description, cp.price, cp.is_active, up.status, up.enrolled_at
+          GROUP BY cp.id, cp.name, cp.description, cp.price, up.status, up.enrolled_at
           ORDER BY up.enrolled_at DESC
         `, [row.id, coachId])
 
@@ -72,7 +70,6 @@ export async function GET(
           name: program.name,
           description: program.description,
           price: parseFloat(program.price),
-          is_active: program.is_active,
           enrollment_status: program.calculated_status, // Use calculated status based on milestone completion
           enrolled_at: program.enrolled_at,
           milestones_count: parseInt(program.milestones_count),

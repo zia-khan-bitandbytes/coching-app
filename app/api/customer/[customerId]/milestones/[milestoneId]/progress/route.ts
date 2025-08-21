@@ -107,45 +107,20 @@ export async function POST(
 
         // If task requires upload, check if files are uploaded
         if (task.requires_upload) {
-          // Check if files are attached to the task description
-          if (!task.description || !task.description.includes('[FILES:')) {
+          // Check if files exist in the task_files table for this task
+          const filesCheck = await pool.query(`
+            SELECT COUNT(*) as file_count
+            FROM task_files tf
+            WHERE tf.task_id = $1
+          `, [task.id])
+          
+          const fileCount = parseInt(filesCheck.rows[0].file_count)
+          
+          if (fileCount === 0) {
             return NextResponse.json(
               { 
                 success: false, 
                 error: `Cannot complete milestone "${milestone.title}". Task "${task.title}" requires file upload but no files are attached.`
-              },
-              { status: 400 }
-            )
-          }
-
-          // Parse files to ensure they exist
-          try {
-            const filesMatch = task.description.match(/\[FILES:([\s\S]*?)\]$/)
-            if (filesMatch) {
-              const files = JSON.parse(filesMatch[1])
-              if (!files || files.length === 0) {
-                return NextResponse.json(
-                  { 
-                    success: false, 
-                    error: `Cannot complete milestone "${milestone.title}". Task "${task.title}" requires file upload but no files are attached.`
-                  },
-                  { status: 400 }
-                )
-              }
-            } else {
-              return NextResponse.json(
-                { 
-                  success: false, 
-                  error: `Cannot complete milestone "${milestone.title}". Task "${task.title}" requires file upload but no files are attached.`
-                },
-                { status: 400 }
-              )
-            }
-          } catch (error) {
-            return NextResponse.json(
-              { 
-                success: false, 
-                error: `Cannot complete milestone "${milestone.title}". Task "${task.title}" has invalid file data.`
               },
               { status: 400 }
             )

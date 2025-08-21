@@ -9,20 +9,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Users, CheckCircle, DollarSign, Calendar, Mail, Check, Copy } from "lucide-react"
+import { Users, CheckCircle, DollarSign, Calendar, Mail, Check, Copy, Eye, FileText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { MemberDetailsDialog } from "@/components/member-details-dialog"
 
 interface Customer {
-  id: string
+  id: number
   name: string
   email: string
   enrolled_programs: {
-    id: string
+    id: number
     name: string
     description: string
-    duration_weeks: number
     price: number
-    is_active: boolean
     enrollment_status: string
     enrolled_at: string
     milestones_count: number
@@ -35,25 +34,84 @@ interface Customer {
   last_activity: string
 }
 
+interface CustomerDetails {
+  id: number
+  name: string
+  email: string
+  enrolled_programs: {
+    id: number
+    name: string
+    description: string
+    price: number
+    enrollment_status: string
+    enrolled_at: string
+    milestones_count: number
+    completed_milestones: number
+    milestones: MilestoneDetail[]
+  }[]
+  total_programs: number
+  active_programs: number
+  completed_milestones: number
+  total_spent: number
+  last_activity: string
+}
+
+interface MilestoneDetail {
+  id: number
+  title: string
+  description: string
+  goal_days: number
+  order_index: number
+  status: 'completed' | 'in-progress' | 'upcoming'
+  started_at?: string
+  completed_at?: string
+  completion_days?: number
+  tasks: TaskDetail[]
+}
+
+interface TaskDetail {
+  id: number
+  title: string
+  description: string
+  completed: boolean
+  completed_at?: string
+  requires_upload: boolean
+  files: {
+    id: string
+    filename: string
+    original_name: string
+    file_size: number
+    uploaded_at: string
+    url: string
+  }[]
+}
+
 interface Program {
-  id: string
+  id: number
   name: string
   description: string
-  duration_weeks: number
   price: number
-  is_active: boolean
   created_at: string
   members_count: number
   total_revenue: number
 }
 
-export function MemberManagement() {
+interface MemberManagementProps {
+  coachId: string
+}
+
+export function MemberManagement({ coachId }: MemberManagementProps) {
   const { toast } = useToast()
   const router = useRouter()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [programs, setPrograms] = useState<Program[]>([])
-  const [coachId, setCoachId] = useState<string>("")
   const [isLoading, setIsLoading] = useState(true)
+
+  // Details dialog states
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerDetails | null>(null)
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
+  const [detailedCustomers, setDetailedCustomers] = useState<CustomerDetails[]>([])
+  const [loadingCustomerId, setLoadingCustomerId] = useState<number | null>(null)
 
   // Invitation states
   const [invitationData, setInvitationData] = useState<{
@@ -69,40 +127,20 @@ export function MemberManagement() {
   const [invitationLink, setInvitationLink] = useState("")
   const [showInvitationLink, setShowInvitationLink] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isSendingInvitation, setIsSendingInvitation] = useState(false)
+  const [emailError, setEmailError] = useState("")
 
   useEffect(() => {
-    // Get coach ID from localStorage
-    const userData = localStorage.getItem("user")
-    console.log('MemberManagement: userData from localStorage:', userData)
-    if (userData) {
-      const user = JSON.parse(userData)
-      console.log('MemberManagement: parsed user:', user)
-      console.log('MemberManagement: user keys:', Object.keys(user))
-      console.log('MemberManagement: user.role:', user.role)
-      console.log('MemberManagement: user.id:', user.id)
-      console.log('MemberManagement: user.coach_id:', user.coach_id)
-      
-      // Check if user is a coach and has coach_id
-      if (user.role === 'coach') {
-        if (user.coach_id) {
-          console.log('MemberManagement: setting coachId:', user.coach_id)
-          setCoachId(user.coach_id)
-          fetchCustomers(user.coach_id)
-          fetchPrograms(user.coach_id)
-        } else {
-          console.log('MemberManagement: coach user but no coach_id found')
-          console.log('MemberManagement: user needs to have a coach record created')
-          setIsLoading(false)
-        }
-      } else {
-        console.log('MemberManagement: user is not a coach, role:', user.role)
-        setIsLoading(false)
-      }
+    // Use the coachId prop directly
+    if (coachId) {
+      console.log('MemberManagement: using coachId prop:', coachId)
+      fetchCustomers(coachId)
+      fetchPrograms(coachId)
     } else {
-      console.log('MemberManagement: no user data in localStorage')
+      console.log('MemberManagement: no coachId provided')
       setIsLoading(false)
     }
-  }, [])
+  }, [coachId])
 
   // Debug: Log when component renders
   console.log('MemberManagement component rendered with:', {
@@ -186,10 +224,16 @@ export function MemberManagement() {
   }
 
   const handleSendInvitation = async () => {
+    console.log('=== handleSendInvitation START ===');
     console.log('handleSendInvitation called with coachId:', coachId);
+    console.log('Current invitation data:', invitationData);
+    
+    // Set loading state immediately
+    setIsSendingInvitation(true);
     
     if (!coachId) {
       console.error('No coach ID available');
+      setIsSendingInvitation(false);
       toast({
         title: "Error",
         description: "Coach profile not found. Please contact support.",
@@ -200,6 +244,7 @@ export function MemberManagement() {
     
     if (!invitationData.email || !invitationData.name || !invitationData.program_id) {
       console.error('Missing required fields:', invitationData);
+      setIsSendingInvitation(false);
       toast({
         title: "Error",
         description: "Please fill in all fields",
@@ -209,11 +254,12 @@ export function MemberManagement() {
     }
 
     // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(invitationData.email.trim())) {
+    if (!validateEmail(invitationData.email)) {
+      console.error('Invalid email format:', invitationData.email);
+      setIsSendingInvitation(false);
       toast({
-        title: "Error",
-        description: "Please enter a valid email address",
+        title: "Invalid Email",
+        description: "Please enter a valid email address (e.g., user@example.com)",
         variant: "destructive"
       })
       return
@@ -223,6 +269,8 @@ export function MemberManagement() {
     const cleanEmail = invitationData.email.trim()
     const cleanName = invitationData.name.trim()
 
+    console.log('Cleaned data:', { cleanEmail, cleanName, program_id: invitationData.program_id });
+
     // Show loading state
     toast({
       title: "Sending invitation...",
@@ -230,33 +278,42 @@ export function MemberManagement() {
     })
 
     try {
-      console.log('Sending invitation with data:', {
+      console.log('Preparing to send invitation with data:', {
         email: cleanEmail,
         name: cleanName,
         program_id: invitationData.program_id,
         coachId
       })
 
+      const requestBody = {
+        email: cleanEmail,
+        name: cleanName,
+        program_id: invitationData.program_id
+      };
+      
+      console.log('Request body:', requestBody);
+      console.log('Making fetch request to:', `/api/coach/${coachId}/invite`);
+
       const response = await fetch(`/api/coach/${coachId}/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: cleanEmail,
-          name: cleanName,
-          program_id: invitationData.program_id
-        })
+        body: JSON.stringify(requestBody)
       })
 
-      console.log('Invitation response status:', response.status)
+      console.log('Invitation response status:', response.status);
+      console.log('Invitation response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Response not OK. Status:', response.status, 'Error text:', errorText);
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
       
       const data = await response.json()
       console.log('Invitation response data:', data)
 
       if (data.success) {
+        console.log('Invitation successful, setting invitation link:', data.invitationLink);
         setInvitationLink(data.invitationLink)
         setShowInvitationLink(true)
         toast({
@@ -279,6 +336,9 @@ export function MemberManagement() {
         description: `Failed to send invitation: ${errorMessage}`,
         variant: "destructive"
       })
+    } finally {
+      console.log('=== handleSendInvitation END ===');
+      setIsSendingInvitation(false);
     }
   }
 
@@ -305,6 +365,79 @@ export function MemberManagement() {
     setShowInvitationLink(false)
     setInvitationLink("")
     setCopied(false)
+    setEmailError("")
+  }
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!email) {
+      setEmailError("")
+      return false
+    }
+    if (!emailRegex.test(email.trim())) {
+      setEmailError("Please enter a valid email address (e.g., user@example.com)")
+      return false
+    }
+    setEmailError("")
+    return true
+  }
+
+  const handleViewDetails = async (customer: Customer) => {
+    try {
+      console.log('handleViewDetails called with customer:', customer)
+      setLoadingCustomerId(customer.id)
+      
+      // Check if we already have detailed data for this customer
+      const existingDetailed = detailedCustomers.find(c => c.id === customer.id)
+      if (existingDetailed) {
+        console.log('Using existing detailed data:', existingDetailed)
+        setSelectedCustomer(existingDetailed)
+        setIsDetailsDialogOpen(true)
+        return
+      }
+
+      console.log('Fetching detailed data for customer ID:', customer.id)
+      // Fetch detailed customer data including milestones and tasks
+      const detailedResponse = await fetch(`/api/coach/${coachId}/customers/${customer.id}/details`)
+      console.log('Detailed response status:', detailedResponse.status)
+      
+      if (detailedResponse.ok) {
+        const detailedData = await detailedResponse.json()
+        console.log('Detailed response data:', detailedData)
+        
+        if (detailedData.success) {
+          const detailedCustomer = detailedData.customer
+          console.log('Detailed customer data received:', detailedCustomer)
+          setDetailedCustomers(prev => [...prev, detailedCustomer])
+          setSelectedCustomer(detailedCustomer)
+          setIsDetailsDialogOpen(true)
+        } else {
+          console.error('API returned success: false:', detailedData)
+          toast({
+            title: "Error",
+            description: detailedData.error || "Failed to fetch customer details",
+            variant: "destructive"
+          })
+        }
+      } else {
+        const errorText = await detailedResponse.text()
+        console.error('API error response:', detailedResponse.status, errorText)
+        toast({
+          title: "Error",
+          description: `Failed to fetch customer details (${detailedResponse.status})`,
+          variant: "destructive"
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching customer details:', error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch customer details. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingCustomerId(null)
+    }
   }
 
   // Show error if coach doesn't have a coach record
@@ -387,9 +520,17 @@ export function MemberManagement() {
                           id="invite-email"
                           type="email"
                           value={invitationData.email}
-                          onChange={(e) => setInvitationData({ ...invitationData, email: e.target.value })}
+                          onChange={(e) => {
+                            setInvitationData({ ...invitationData, email: e.target.value })
+                            validateEmail(e.target.value)
+                          }}
+                          onBlur={(e) => validateEmail(e.target.value)}
                           placeholder="Enter customer email"
+                          className={emailError ? "border-red-500" : ""}
                         />
+                        {emailError && (
+                          <p className="text-sm text-red-500 mt-1">{emailError}</p>
+                        )}
                       </div>
                       <div>
                         <Label htmlFor="invite-program">Program</Label>
@@ -399,7 +540,7 @@ export function MemberManagement() {
                           </SelectTrigger>
                           <SelectContent>
                             {programs.map((program) => (
-                              <SelectItem key={program.id} value={program.id}>
+                              <SelectItem key={program.id} value={program.id.toString()}>
                                 {program.name} - ${program.price}
                               </SelectItem>
                             ))}
@@ -414,10 +555,20 @@ export function MemberManagement() {
                           console.log('Programs available:', programs.length);
                           handleSendInvitation();
                         }} 
+                        disabled={isSendingInvitation}
                         className="w-full"
                       >
-                        <Mail className="h-4 w-4 mr-2" />
-                        Send Invitation Email
+                        {isSendingInvitation ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-4 w-4 mr-2" />
+                            Send Invitation Email
+                          </>
+                        )}
                       </Button>
                     </>
                   )}
@@ -501,6 +652,25 @@ export function MemberManagement() {
                       <p className="text-sm text-gray-600">{customer.email}</p>
                     </div>
                     <div className="flex items-center space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetails(customer)}
+                        disabled={loadingCustomerId === customer.id}
+                        className="flex items-center gap-2"
+                      >
+                        {loadingCustomerId === customer.id ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                            Loading...
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-4 w-4" />
+                            Details
+                          </>
+                        )}
+                      </Button>
                       <Badge variant="default">
                         {customer.active_programs} Active Programs
                       </Badge>
@@ -532,7 +702,7 @@ export function MemberManagement() {
                                 <div className="grid grid-cols-4 gap-3 text-xs text-gray-500">
                                   <div className="flex items-center space-x-1">
                                     <Calendar className="h-3 w-3" />
-                                    <span>{program.duration_weeks}w</span>
+                                    <span>{new Date(program.enrolled_at).toLocaleDateString()}</span>
                                   </div>
                                   <div className="flex items-center space-x-1">
                                     <DollarSign className="h-3 w-3" />
@@ -608,6 +778,23 @@ export function MemberManagement() {
           )}
         </CardContent>
       </Card>
+      {selectedCustomer && selectedCustomer.enrolled_programs && (
+        <MemberDetailsDialog
+          isOpen={isDetailsDialogOpen}
+          onClose={() => setIsDetailsDialogOpen(false)}
+          customer={selectedCustomer}
+          coachId={coachId}
+        />
+      )}
+      
+      {/* Debug info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 right-4 bg-black text-white p-4 rounded-lg text-xs max-w-xs">
+          <div>Dialog Open: {isDetailsDialogOpen ? 'Yes' : 'No'}</div>
+          <div>Selected Customer: {selectedCustomer ? `${selectedCustomer.name} (ID: ${selectedCustomer.id})` : 'None'}</div>
+          <div>Coach ID: {coachId}</div>
+        </div>
+      )}
     </div>
   )
 }

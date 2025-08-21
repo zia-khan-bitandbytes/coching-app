@@ -196,6 +196,33 @@ export default function CustomerSignupPage() {
 
   const nextStep = () => {
     if (currentStep < steps.length) {
+      // Validate current step before proceeding
+      if (currentStep === 2) {
+        // Validate Personal Info step
+        if (!formData.firstName || !formData.lastName || !formData.email) {
+          showErrorToast("Please fill in all required fields (First Name, Last Name, Email)")
+          return
+        }
+      } else if (currentStep === 3) {
+        // Validate Security step
+        if (!formData.password || !formData.confirmPassword) {
+          showErrorToast("Please fill in both password fields")
+          return
+        }
+        if (formData.password !== formData.confirmPassword) {
+          showErrorToast("Passwords do not match")
+          return
+        }
+        if (formData.password.length < 6) {
+          showErrorToast("Password must be at least 6 characters long")
+          return
+        }
+        if (!formData.acceptTerms) {
+          showErrorToast("You must accept the Terms of Service to continue")
+          return
+        }
+      }
+      
       setCurrentStep(currentStep + 1)
     }
   }
@@ -207,6 +234,27 @@ export default function CustomerSignupPage() {
   }
 
   const handleSubmit = async () => {
+    // Final validation before submission
+    if (!formData.acceptTerms) {
+      showErrorToast("You must accept the Terms of Service to create an account")
+      return
+    }
+    
+    if (!formData.password || !formData.confirmPassword) {
+      showErrorToast("Please fill in both password fields")
+      return
+    }
+    
+    if (formData.password !== formData.confirmPassword) {
+      showErrorToast("Passwords do not match")
+      return
+    }
+    
+    if (formData.password.length < 6) {
+      showErrorToast("Password must be at least 6 characters long")
+      return
+    }
+    
     setIsLoading(true)
     try {
       // Create user object
@@ -279,6 +327,23 @@ export default function CustomerSignupPage() {
   }
 
   const progressPercentage = (currentStep / steps.length) * 100
+
+  const isCurrentStepValid = () => {
+    switch (currentStep) {
+      case 1:
+        return true // Welcome step is always valid
+      case 2:
+        return formData.firstName && formData.lastName && formData.email
+      case 3:
+        return formData.password && 
+               formData.confirmPassword && 
+               formData.password === formData.confirmPassword && 
+               formData.password.length >= 6 && 
+               formData.acceptTerms
+      default:
+        return false
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -674,12 +739,16 @@ export default function CustomerSignupPage() {
                               id="acceptTerms"
                               checked={formData.acceptTerms}
                               onCheckedChange={(checked) => handleInputChange('acceptTerms', checked)}
+                              className={!formData.acceptTerms ? "border-red-500" : ""}
                             />
-                            <Label htmlFor="acceptTerms" className="text-sm">
+                            <Label htmlFor="acceptTerms" className={`text-sm ${!formData.acceptTerms ? "text-red-600" : ""}`}>
                               I agree to the <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and{" "}
                               <a href="#" className="text-blue-600 hover:underline">Privacy Policy</a> *
                             </Label>
                           </div>
+                          {!formData.acceptTerms && (
+                            <p className="text-sm text-red-500 ml-6">You must accept the Terms of Service to continue</p>
+                          )}
                           <div className="flex items-center space-x-2">
                             <Checkbox
                               id="marketingEmails"
@@ -710,7 +779,12 @@ export default function CustomerSignupPage() {
                         <Button
                           type="button"
                           onClick={nextStep}
-                          className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                          disabled={!isCurrentStepValid()}
+                          className={`flex items-center gap-2 ${
+                            isCurrentStepValid()
+                              ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700'
+                              : 'bg-gray-400 cursor-not-allowed'
+                          }`}
                         >
                           Next Step
                           <ArrowRight className="h-4 w-4" />
@@ -719,8 +793,12 @@ export default function CustomerSignupPage() {
                         <Button
                           type="button"
                           onClick={handleSubmit}
-                          disabled={isLoading}
-                          className="flex items-center gap-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                          disabled={isLoading || !formData.acceptTerms}
+                          className={`flex items-center gap-2 ${
+                            formData.acceptTerms 
+                              ? 'bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700' 
+                              : 'bg-gray-400 cursor-not-allowed'
+                          }`}
                         >
                           {isLoading ? "Creating Account..." : "Create Account"}
                           <CheckCircle className="h-4 w-4" />

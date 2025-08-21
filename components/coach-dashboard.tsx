@@ -25,6 +25,8 @@ interface Program {
   milestones_count: number
   members_count: number
   milestones?: Milestone[]
+  monthly_revenue?: number
+  duration_days?: number
 }
 
 interface Task {
@@ -70,6 +72,8 @@ interface Customer {
     enrolled_at: string
     milestones_count: number
     completed_milestones: number
+    duration_days?: number
+    members_count?: number
   }[]
   total_programs: number
   active_programs: number
@@ -133,7 +137,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
 
   // Form states
   const [addProgramOpen, setAddProgramOpen] = useState(false)
-  const [newProgram, setNewProgram] = useState({ name: '', description: '', price: 0 })
+  const [newProgram, setNewProgram] = useState({ name: '', description: '', price: 0, duration_days: 30 })
   const [programErrors, setProgramErrors] = useState({ name: '', description: '', price: '' })
   
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false)
@@ -175,7 +179,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
 
   // Dialog open handlers
   const openAddProgramDialog = () => {
-    setNewProgram({ name: '', description: '', price: 0 })
+    setNewProgram({ name: '', description: '', price: 0, duration_days: 30 })
     clearProgramErrors()
     setAddProgramOpen(true)
   }
@@ -212,22 +216,22 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
         
         const programMilestones = milestones.filter((m: Milestone) => m.program_id === selectedProgram)
         
-        // Calculate program-specific stats
+        // Calculate program-specific stats using the API-provided monthly revenue
         const programStats = {
           totalPrograms: 1,
           totalCustomers: programCustomers.length,
           totalMilestones: programMilestones.length,
           totalRevenue: program.price * program.members_count,
-          activeEnrollments: programCustomers.filter(c => 
-            c.enrolled_programs.some(ep => 
+          activeEnrollments: programCustomers.filter((c: Customer) => 
+            c.enrolled_programs.some((ep: any) => 
               ep.id === selectedProgram && 
               getProgramCompletionStatus(ep.milestones_count, ep.completed_milestones) !== 'completed'
             )
           ).length,
-          monthlyRevenue: program.price * program.members_count * 0.3, // Estimate
+          monthlyRevenue: program.monthly_revenue || 0, // Use API-provided monthly revenue
           completionRate: programCustomers.length > 0 ? 
-            (programCustomers.filter(c => 
-              c.enrolled_programs.some(ep => 
+            (programCustomers.filter((c: Customer) => 
+              c.enrolled_programs.some((ep: any) => 
                 ep.id === selectedProgram && 
                 getProgramCompletionStatus(ep.milestones_count, ep.completed_milestones) === 'completed'
               )
@@ -259,6 +263,14 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       }
     }
   }, [selectedProgram, programs, customers, milestones, stats])
+
+  // Ensure filteredStats is updated when stats change
+  useEffect(() => {
+    if (selectedProgram === "all") {
+      console.log('CoachDashboard: Updating filteredStats with stats:', stats)
+      setFilteredStats(stats)
+    }
+  }, [stats, selectedProgram])
 
   // Calculate growth metrics when filtered stats change
   useEffect(() => {
@@ -311,23 +323,36 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
     const breakdown: TTVMetrics['milestoneBreakdown'] = []
 
     milestonesToUse.forEach(milestone => {
-      if (milestone.avg_completion_days && milestone.completed_count && milestone.completed_count > 0) {
-        totalDays += milestone.avg_completion_days * milestone.completed_count
+      if (milestone.completed_count && milestone.completed_count > 0) {
+        totalDays += (milestone.avg_completion_days || 0) * milestone.completed_count
         totalCompleted += milestone.completed_count
         totalGoalDays += (milestone.goal_days || 30) * milestone.completed_count
 
         const goalDays = milestone.goal_days || 30
-        const efficiency = goalDays > 0 && milestone.avg_completion_days > 0 ? 
-          Math.round((goalDays / milestone.avg_completion_days) * 100) : 0
-        const progress = goalDays > 0 ? Math.min(100, (milestone.avg_completion_days / goalDays) * 100) : 0
+        const avgCompletionDays = milestone.avg_completion_days || 0
+        
+        // Calculate efficiency: if we complete in goal time or less, efficiency is 100% or higher
+        // If we take longer than goal, efficiency decreases
+        // If no completion time recorded yet, assume we're on track (100% efficiency)
+        let efficiency = 100
+        let progress = 100
+        
+        if (avgCompletionDays > 0) {
+          efficiency = goalDays > 0 ? Math.round((goalDays / avgCompletionDays) * 100) : 100
+          progress = goalDays > 0 ? Math.min(100, (goalDays / avgCompletionDays) * 100) : 100
+        }
+        
+        // Status logic: efficiency >= 100 means we're meeting or beating the goal (on track)
+        // efficiency < 100 means we're taking longer than goal (over target)
+        const status = efficiency >= 100 ? 'on track' : 'over target'
         
         breakdown.push({
           milestone: milestone.title,
           program: milestone.program_name,
           completed: milestone.completed_count,
           efficiency: efficiency,
-          status: efficiency >= 100 ? 'on track' : 'over target',
-          completionDays: Math.round(milestone.avg_completion_days),
+          status: status,
+          completionDays: Math.round(avgCompletionDays),
           goalDays: goalDays,
           progress: progress
         })
@@ -341,7 +366,9 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
     const overallGoalTTV = totalCompleted > 0 ? Math.round(totalGoalDays / totalCompleted) : 30
     
     const overTarget = Math.max(0, avgTTV - overallGoalTTV)
-    const overallEfficiency = overallGoalTTV > 0 ? Math.round((overallGoalTTV / avgTTV) * 100) : 0
+    // Overall efficiency: if we're meeting or beating the goal, efficiency is 100% or higher
+    // If no completion time recorded yet, assume we're on track (100% efficiency)
+    const overallEfficiency = overallGoalTTV > 0 && avgTTV > 0 ? Math.round((overallGoalTTV / avgTTV) * 100) : 100
 
     setTtvMetrics({
       totalTTV: avgTTV,
@@ -396,8 +423,25 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
     }
   }
 
+  // Add debug logging for dashboard data
+  useEffect(() => {
+    console.log('CoachDashboard: Data state updated:', {
+      stats,
+      filteredStats,
+      customers,
+      filteredCustomers,
+      programs,
+      milestones,
+      ttvMetrics,
+      selectedProgram
+    })
+  }, [stats, filteredStats, customers, filteredCustomers, programs, milestones, ttvMetrics, selectedProgram])
+
+  // Add debug logging for API responses
   const fetchCoachData = async () => {
     try {
+      console.log('CoachDashboard: Starting to fetch coach data for coachId:', coachId)
+      
       // Fetch programs
       const programsRes = await fetch(`/api/coach/${coachId}/programs`)
       if (!programsRes.ok) {
@@ -406,7 +450,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       }
       
       const programsData = await programsRes.json()
-      console.log('Programs response:', programsData)
+      console.log('CoachDashboard: Programs API response:', programsData)
       if (programsData.success) {
         const programsWithMilestones = programsData.programs.map((program: any) => ({
           ...program,
@@ -414,6 +458,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
           milestones_count: 0
         }))
         setPrograms(programsWithMilestones)
+        console.log('CoachDashboard: Programs set:', programsWithMilestones)
         
         // Fetch milestones for each program
         for (const program of programsWithMilestones) {
@@ -425,7 +470,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
             }
             
             const milestonesData = await milestonesRes.json()
-            console.log(`Milestones for program ${program.id}:`, milestonesData)
+            console.log(`CoachDashboard: Milestones for program ${program.id}:`, milestonesData)
             if (milestonesData.success) {
               // Fetch tasks for each milestone
               const milestonesWithTasks = await Promise.all(
@@ -489,15 +534,16 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       }
       
       const customersData = await customersRes.json()
-      console.log('Customers response:', customersData)
+      console.log('CoachDashboard: Customers API response:', customersData)
       if (customersData.success) {
         setCustomers(customersData.customers)
+        console.log('CoachDashboard: Customers set:', customersData.customers)
         
         // Debug: Log milestone completion data for each customer
-        console.log('Customers Milestone Debug:', customersData.customers.map(c => ({
+        console.log('CoachDashboard: Customers Milestone Debug:', customersData.customers.map((c: any) => ({
           name: c.name,
           totalMilestones: c.completed_milestones,
-          programs: c.enrolled_programs.map(p => ({
+          programs: c.enrolled_programs.map((p: any) => ({
             name: p.name,
             milestones: p.milestones_count,
             completed: p.completed_milestones,
@@ -514,13 +560,14 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       }
       
       const statsData = await statsRes.json()
-      console.log('Stats response:', statsData)
+      console.log('CoachDashboard: Stats API response:', statsData)
       if (statsData.success) {
+        console.log('CoachDashboard: Setting stats to:', statsData.stats)
         setStats(statsData.stats)
-        console.log('Stats set to:', statsData.stats)
+        console.log('CoachDashboard: Stats set successfully')
         
         // Debug: Log the completion rate calculation
-        console.log('Completion Rate Debug:', {
+        console.log('CoachDashboard: Completion Rate Debug:', {
           milestoneCompletionRate: statsData.stats.completionRate,
           totalCustomers: statsData.stats.totalCustomers,
           totalMilestones: statsData.stats.totalMilestones,
@@ -528,7 +575,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
         })
       }
     } catch (error) {
-      console.error('Error fetching coach data:', error)
+      console.error('CoachDashboard: Error fetching coach data:', error)
     }
   }
 
@@ -542,12 +589,16 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       const response = await fetch('/api/coach/programs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...newProgram, coach_id: coachId })
+        body: JSON.stringify({ 
+          ...newProgram, 
+          coach_id: coachId,
+          duration_days: newProgram.duration_days || 30
+        })
       })
       
       if (response.ok) {
         setAddProgramOpen(false)
-        setNewProgram({ name: '', description: '', price: 0 })
+        setNewProgram({ name: '', description: '', price: 0, duration_days: 30 })
         clearProgramErrors()
         fetchCoachData() // Refresh data
         toast({
@@ -1215,7 +1266,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-1">
                       <Label htmlFor="price">Price ($)</Label>
                       <div className="flex items-center space-x-2">
                         <span className="text-xs text-gray-500">Must be greater than $0</span>
@@ -1238,6 +1289,31 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                     />
                     <div className="mt-1">
                       <span className="text-xs text-red-600">{programErrors.price}</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label htmlFor="duration_days">Duration (days)</Label>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs text-gray-500">Program length in days</span>
+                        {newProgram.duration_days > 0 && (
+                          <span className="text-green-500">✓</span>
+                        )}
+                      </div>
+                    </div>
+                    <Input
+                      id="duration_days"
+                      type="number"
+                      min="1"
+                      value={newProgram.duration_days}
+                      onChange={(e) => {
+                        setNewProgram({ ...newProgram, duration_days: parseInt(e.target.value) || 30 })
+                      }}
+                      placeholder="30"
+                    />
+                    <div className="mt-1">
+                      <span className="text-xs text-gray-500">Default: 30 days</span>
                     </div>
                   </div>
                 </div>
@@ -1291,7 +1367,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                 <div className="grid grid-cols-4 gap-4 text-sm text-gray-600 ml-11">
                   <div className="flex items-center space-x-1">
                     <Calendar className="h-4 w-4" />
-                    <span>{program.calculated_duration || 0} weeks</span>
+                    <span>{program.duration_days || 0} days</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <DollarSign className="h-4 w-4" />
@@ -1353,7 +1429,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                                     {milestone.goal_days && (
                                       <div className="text-xs text-blue-600 mt-1">
                                         TTV Goal: {milestone.goal_days} days
-                                        {milestone.avg_completion_days > 0 && (
+                                        {milestone.avg_completion_days && milestone.avg_completion_days > 0 && (
                                           <span className="ml-2">
                                             (Avg: {Math.round(milestone.avg_completion_days)}d)
                                           </span>
@@ -1819,11 +1895,15 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                                 <div className="grid grid-cols-4 gap-3 text-xs text-gray-500">
                                   <div className="flex items-center space-x-1">
                                     <Calendar className="h-3 w-3" />
-                                    <span>{program.calculated_duration || 0}w</span>
+                                    <span>{program.duration_days || 0} days</span>
                                   </div>
                                   <div className="flex items-center space-x-1">
                                     <DollarSign className="h-3 w-3" />
                                     <span>${program.price}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-1">
+                                    <Users className="h-3 w-3" />
+                                    <span>{program.members_count || 0} members</span>
                                   </div>
                                   <div className="flex items-center space-x-1">
                                     <Target className="h-3 w-3" />
@@ -1831,10 +1911,6 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                                     <span className="text-blue-600 font-medium">
                                       ({getCompletionPercentage(program.milestones_count, program.completed_milestones)}%)
                                     </span>
-                                  </div>
-                                  <div className="flex items-center space-x-1">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>{new Date(program.enrolled_at).toLocaleDateString()}</span>
                                   </div>
                                 </div>
                               </div>
@@ -1956,7 +2032,13 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1 group-hover:text-gray-700 transition-colors duration-300">Total Clients</p>
-              <p className="text-3xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">{filteredStats.totalCustomers}</p>
+              <p className="text-3xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">
+                {filteredStats.totalCustomers}
+                {/* Debug info */}
+                <span className="text-xs text-gray-400 ml-2">
+                  (stats: {stats.totalCustomers}, filtered: {filteredStats.totalCustomers})
+                </span>
+              </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 group-hover:scale-110 transition-all duration-300">
               <Users className="w-6 h-6 text-blue-700 group-hover:text-blue-800 transition-colors duration-300" />
@@ -2024,6 +2106,10 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
               <p className="text-sm font-medium text-gray-600 mb-1 group-hover:text-gray-700 transition-colors duration-300">Client Success Rate (CSR)</p>
               <p className="text-3xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">
                 {filteredStats.totalCustomers > 0 ? Math.round((getCompletedCustomers().length / filteredStats.totalCustomers) * 100) : 0}%
+                {/* Debug info */}
+                <span className="text-xs text-gray-400 ml-2">
+                  (completed: {getCompletedCustomers().length}, total: {filteredStats.totalCustomers})
+                </span>
               </p>
               <p className="text-xs text-gray-500 mt-1">% of customers who completed programs</p>
             </div>
@@ -2125,7 +2211,13 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
           <div className="flex justify-between items-start mb-4">
             <div>
               <p className="text-sm font-medium text-gray-600 mb-1 group-hover:text-gray-700 transition-colors duration-300">Monthly Revenue $</p>
-              <p className="text-3xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">${filteredStats.monthlyRevenue}</p>
+              <p className="text-3xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">
+                ${filteredStats.monthlyRevenue}
+                {/* Debug info */}
+                <span className="text-xs text-gray-400 ml-2">
+                  (stats: ${stats.monthlyRevenue}, filtered: ${filteredStats.monthlyRevenue})
+                </span>
+              </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 group-hover:scale-110 transition-all duration-300">
               <DollarSign className="w-6 h-6 text-green-700 group-hover:text-green-800 transition-colors duration-300" />

@@ -54,15 +54,15 @@ export async function GET(
         const filesResult = await pool.query(`
           SELECT 
             id,
-            filename as file_name,
-            original_filename as original_name,
+            file_name,
+            original_name,
             file_path,
             file_size,
-            mime_type as file_type,
-            uploaded_at as created_at
+            file_type,
+            created_at
           FROM task_files 
           WHERE task_id = $1
-          ORDER BY uploaded_at DESC
+          ORDER BY created_at DESC
         `, [row.id])
         
         files = filesResult.rows.map(fileRow => ({

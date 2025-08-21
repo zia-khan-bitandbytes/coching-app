@@ -12,10 +12,9 @@ export async function GET(
     const programsResult = await pool.query(`
       SELECT 
         cp.id,
-        cp.name,
+        cp.title as name,
         cp.description,
         cp.price,
-        up.status,
         up.enrolled_at,
         c.business_name as coach_business_name,
         m.id as milestone_id,
@@ -25,7 +24,7 @@ export async function GET(
         m.goal_days,
         mp.completed as milestone_completed,
         mp.completed_at as milestone_completed_at,
-        mp.created_at as milestone_started_at,
+        mp.started_at as milestone_started_at,
         mp.notes as milestone_notes
       FROM coaching_programs cp
       JOIN user_programs up ON cp.id = up.program_id
@@ -48,7 +47,6 @@ export async function GET(
           name: row.name,
           description: row.description,
           price: parseFloat(row.price),
-          status: row.status,
           enrolled_at: row.enrolled_at,
           coach_business_name: row.coach_business_name,
           milestones: [],
@@ -139,8 +137,9 @@ export async function GET(
       program.milestones.forEach((milestone: any, index: number) => {
         if (index === 0) {
           milestone.isLocked = false // First milestone is always unlocked
+          // Don't override status if milestone is already started or completed
           if (!milestone.started_at && !milestone.completed) {
-            milestone.status = "in-progress"
+            milestone.status = "upcoming"
           }
         } else {
           // Check if previous milestone is completed
@@ -150,7 +149,7 @@ export async function GET(
           if (milestone.isLocked) {
             milestone.status = "locked"
           } else if (!milestone.started_at && !milestone.completed) {
-            milestone.status = "in-progress"
+            milestone.status = "upcoming"
           }
         }
       })

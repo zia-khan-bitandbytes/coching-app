@@ -6,9 +6,25 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
+    console.log('=== INVITATION FETCH API START ===');
     const { token } = await params
+    console.log('Fetching invitation for token:', token);
+
+    // Test database connection first
+    try {
+      console.log('Testing database connection...');
+      const testResult = await pool.query('SELECT NOW() as current_time');
+      console.log('Database connection test successful:', testResult.rows[0]);
+    } catch (dbTestError) {
+      console.error('Database connection test failed:', dbTestError);
+      return NextResponse.json(
+        { success: false, error: 'Database connection failed' },
+        { status: 500 }
+      )
+    }
 
     // Get invitation with program and coach details
+    console.log('Executing invitation query...');
     const invitationResult = await pool.query(`
       SELECT 
         i.id,
@@ -32,6 +48,11 @@ export async function GET(
       JOIN users u ON c.user_id = u.id
       WHERE i.token = $1
     `, [token])
+
+    console.log('Query result rows:', invitationResult.rows.length);
+    if (invitationResult.rows.length > 0) {
+      console.log('First row data:', invitationResult.rows[0]);
+    }
 
     if (invitationResult.rows.length === 0) {
       return NextResponse.json(
@@ -81,10 +102,16 @@ export async function GET(
 
   } catch (error) {
     console.error('Error fetching invitation:', error)
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    });
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
     )
+  } finally {
+    console.log('=== INVITATION FETCH API END ===');
   }
 }
 

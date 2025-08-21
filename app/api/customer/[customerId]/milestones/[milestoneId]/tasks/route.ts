@@ -75,12 +75,12 @@ export async function GET(
       SELECT 
         tf.task_id,
         tf.id as file_id,
-        tf.original_filename,
-        tf.filename,
+        tf.original_name,
+        tf.file_name,
         tf.file_path,
         tf.file_size,
-        tf.mime_type,
-        tf.uploaded_at
+        tf.file_type,
+        tf.created_at as uploaded_at
       FROM task_files tf
       JOIN tasks t ON tf.task_id = t.id
       WHERE t.milestone_id = $1 AND tf.user_id = $2
@@ -94,11 +94,11 @@ export async function GET(
       }
       filesMap.get(file.task_id).push({
         id: file.file_id,
-        name: file.original_filename,
-        filename: file.filename,
+        name: file.original_name,
+        filename: file.file_name,
         url: file.file_path,
-        size: file.file_size,
-        type: file.mime_type,
+        size: parseInt(file.file_size), // Convert to number
+        type: file.file_type,
         uploadedAt: file.uploaded_at
       })
     })

@@ -7,7 +7,7 @@ interface User {
   id: string
   email: string
   name: string
-  password: string
+  password_hash: string
   role: 'coach' | 'customer' | 'super_admin'
   created_at: string
 }
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     // Create new user in database
     const result = await pool.query(
-      'INSERT INTO users (email, name, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
+      'INSERT INTO users (email, name, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING *',
       [email.toLowerCase(), name, hashedPassword, role]
     )
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Return user data (without password)
-    const { password: _, ...userWithoutPassword } = newUser
+    const { password_hash: _, ...userWithoutPassword } = newUser
     
     const response = NextResponse.json({
       message: `${role === 'coach' ? 'Coach' : 'Customer'} account created successfully`,

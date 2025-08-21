@@ -118,17 +118,19 @@ export async function POST(
     let fileRecord
     try {
       const result = await pool.query(`
-        INSERT INTO task_files (task_id, user_id, filename, original_filename, file_path, file_size, mime_type, uploaded_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id, filename, original_filename, file_path, file_size, mime_type, uploaded_at
+        INSERT INTO task_files (task_id, milestone_id, user_id, file_name, original_name, file_path, file_size, file_type, uploaded_by, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id, file_name, original_name, file_path, file_size, file_type, created_at
       `, [
         taskId,
+        milestoneId,
         customerId,
         fileName,
         originalName,
         publicUrl,
         file.size,
         file.type,
+        `Customer ${customerId}`,
         new Date()
       ])
       fileRecord = result.rows[0]
@@ -139,11 +141,11 @@ export async function POST(
       console.log('task_files table not found, using fallback')
       fileRecord = {
         id: Date.now(),
-        original_filename: originalName,
+        original_name: originalName,
         file_size: file.size,
-        mime_type: file.type,
+        file_type: file.type,
         file_path: publicUrl,
-        uploaded_at: new Date()
+        created_at: new Date()
       }
     }
 
@@ -175,11 +177,11 @@ export async function POST(
       // Add the new file
       const newFile = {
         id: fileRecord.id,
-        name: fileRecord.original_filename,
-        size: fileRecord.file_size,
-        type: fileRecord.mime_type,
+        name: fileRecord.original_name,
+        size: parseInt(fileRecord.file_size), // Convert to number
+        type: fileRecord.file_type,
         url: fileRecord.file_path,
-        uploadedAt: fileRecord.uploaded_at
+        uploadedAt: fileRecord.created_at
       }
       files.push(newFile)
 
@@ -202,11 +204,11 @@ export async function POST(
       success: true,
       file: {
         id: fileRecord.id,
-        name: fileRecord.original_filename,
-        size: fileRecord.file_size,
-        type: fileRecord.mime_type,
+        name: fileRecord.original_name,
+        size: parseInt(fileRecord.file_size), // Convert to number
+        type: fileRecord.file_type,
         url: fileRecord.file_path,
-        uploadedAt: fileRecord.uploaded_at
+        uploadedAt: fileRecord.created_at
       }
     })
 

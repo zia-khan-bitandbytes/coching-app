@@ -204,23 +204,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
             description: cleanTaskDescription(task.description)
           }))
           
-          // Debug: Log the loaded tasks and their completion status
-          console.log('Loaded tasks for milestone:', milestoneId, tasksWithFiles)
-          console.log('Task completion status:', tasksWithFiles.map((t: any) => ({ id: t.id, title: t.title, completed: t.completed })))
-          console.log('Task upload requirements:', tasksWithFiles.map((t: any) => ({ id: t.id, title: t.title, requiresUpload: t.requiresUpload })))
-          
-          // Debug: Check specific task upload requirements
-          tasksWithFiles.forEach((task: any) => {
-            if (task.title === 'Data cleaning') {
-              console.log('Data cleaning task details:', {
-                id: task.id,
-                title: task.title,
-                requiresUpload: task.requiresUpload,
-                description: task.description,
-                files: task.files
-              })
-            }
-          })
+
           
           // Update the milestone with its tasks
           setProgramsWithMilestones(prev => prev.map(program => ({
@@ -272,7 +256,13 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
             ...program,
             milestones: program.milestones.map(m => 
               m.id.toString() === milestoneId
-                ? { ...m, completed: true, completed_at: new Date().toISOString(), status: "completed" }
+                ? { 
+                    ...m, 
+                    completed: true, 
+                    completed_at: new Date().toISOString(), 
+                    status: "completed",
+                    started_at: m.started_at || new Date().toISOString() // Ensure started_at exists
+                  }
                 : m
             )
           })))
@@ -331,19 +321,29 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
         const result = await response.json()
         
         if (result.success) {
+          // Update local state immediately for better UX
           setProgramsWithMilestones(prev => prev.map(program => ({
             ...program,
             milestones: program.milestones.map(m => 
               m.id.toString() === milestoneId
-                ? { ...m, started_at: new Date().toISOString(), status: "in-progress", isLocked: false }
+                ? { 
+                    ...m, 
+                    started_at: new Date().toISOString(), 
+                    status: "in-progress", 
+                    isLocked: false,
+                    completed: false // Ensure completed is false when starting
+                  }
                 : m
             )
           })))
           
           toast({
             title: 'Milestone started!',
-            description: 'You can now work on this milestone.',
+            description: 'You can now work on this milestone. The countdown timer has begun!',
           })
+          
+          // Don't refresh data immediately to avoid overriding local state
+          // The local state update should be sufficient for immediate UI feedback
         }
       }
     } catch (error) {
@@ -362,7 +362,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
         taskId: taskId,
         completed: true
       }
-      console.log('Sending PATCH request:', requestBody)
+
       
       const response = await fetch(`/api/customer/${customerId}/milestones/${milestoneId}/tasks`, {
         method: 'PATCH',
@@ -394,14 +394,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
               )
             }))
             
-            // Debug: Log the updated milestone state
-            const updatedMilestone = updatedPrograms
-              .flatMap(p => p.milestones)
-              .find(m => m.id === milestoneId)
-            if (updatedMilestone) {
-              console.log('Updated milestone after task completion:', updatedMilestone)
-              console.log('All tasks completed:', areAllTasksCompleted(updatedMilestone))
-            }
+
             
             return updatedPrograms
           })
@@ -502,20 +495,10 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
   // Helper function to check if all tasks in a milestone are completed
   const areAllTasksCompleted = (milestone: Milestone) => {
     if (!milestone.tasks || milestone.tasks.length === 0) {
-      console.log('No tasks found for milestone:', milestone.id)
       return false
     }
     
-    const allCompleted = milestone.tasks.every(task => task.completed === true)
-    console.log('Milestone completion check:', {
-      milestoneId: milestone.id,
-      totalTasks: milestone.tasks.length,
-      completedTasks: milestone.tasks.filter(t => t.completed === true).length,
-      allCompleted,
-      taskStatus: milestone.tasks.map(t => ({ id: t.id, title: t.title, completed: t.completed }))
-    })
-    
-    return allCompleted
+    return milestone.tasks.every(task => task.completed === true)
   }
 
   // Helper function to check if a task has uploaded files (ONLY from task.files array)
@@ -537,6 +520,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
     switch (status) {
       case "completed": return 'bg-green-100 text-green-800 border-green-200'
       case "in-progress": return 'bg-blue-100 text-blue-800 border-blue-200'
+      case "upcoming": return 'bg-orange-100 text-orange-800 border-orange-200'
       case "locked": return 'bg-gray-100 text-gray-600 border-gray-200'
       default: return 'bg-gray-100 text-gray-600 border-gray-200'
     }
@@ -743,8 +727,9 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                     transition={{ duration: 0.4, delay: index * 0.1 }}
                   >
                     <Card className={`transition-all duration-300 hover:shadow-lg ${
-                      milestone.status === "completed" ? "border-green-200 bg-green-50" :
-                      milestone.status === "in-progress" ? "border-blue-200 bg-blue-50" :
+                      milestone.completed ? "border-green-200 bg-green-50" :
+                      milestone.started_at ? "border-blue-200 bg-blue-50" :
+                      !milestone.isLocked ? "border-orange-200 bg-orange-50" :
                       "border-gray-200"
                     }`}>
                       <CardContent className="p-6">
@@ -752,8 +737,9 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                           <div className="flex items-center space-x-4 flex-1">
                             {/* Milestone Icon */}
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                          milestone.status === "completed" ? "bg-green-500" :
-                              milestone.status === "in-progress" ? "bg-blue-500" :
+                          milestone.completed ? "bg-green-500" :
+                              milestone.started_at ? "bg-blue-500" :
+                              !milestone.isLocked ? "bg-orange-500" :
                           "bg-gray-300"
                             }`}>
                               <Icon className="w-6 h-6 text-white" />
@@ -764,8 +750,8 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                               <div className="flex items-center space-x-3 mb-2">
                                 <h3 className="text-lg font-semibold text-gray-900">{milestone.title}</h3>
                                 <div className="flex items-center space-x-2">
-                                  <Badge className={getStatusColor(milestone.status)}>
-                                    {milestone.status.replace('-', ' ')}
+                                  <Badge className={getStatusColor(milestone.completed ? "completed" : milestone.started_at ? "in-progress" : !milestone.isLocked ? "upcoming" : "locked")}>
+                                    {milestone.completed ? "completed" : milestone.started_at ? "in progress" : !milestone.isLocked ? "upcoming" : "locked"}
                                   </Badge>
                                   {milestone.isLocked && (
                                     <Lock className="w-4 h-4 text-gray-500" />
@@ -789,87 +775,124 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                 </div>
                               )}
                               
+                              {/* Upcoming milestone message */}
+                              {!milestone.isLocked && !milestone.started_at && !milestone.completed && (
+                                <div className="flex items-center space-x-2 text-sm text-orange-600 mb-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                  <Play className="w-4 h-4" />
+                                  <span>This milestone is ready to start! Click "Start Milestone" to begin working on it.</span>
+                                </div>
+                              )}
+                              
+
+                              
+                              {/* In-progress milestone message */}
+                              {!milestone.isLocked && milestone.started_at && !milestone.completed && (
+                                <div className="flex items-center space-x-2 text-sm text-blue-600 mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                  <Play className="w-4 h-4" />
+                                  <span>Milestone started - You can now work on the tasks below.</span>
+                                </div>
+                              )}
+                              
+                              {/* Ready to complete milestone message */}
+                              {!milestone.isLocked && milestone.started_at && !milestone.completed && milestone.tasks && milestone.tasks.length > 0 && areAllTasksCompleted(milestone) && (
+                                <div className="flex items-center space-x-2 text-sm text-green-600 mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                                  <CheckCircle className="w-4 h-4" />
+                                  <span>All tasks completed! Click "Complete Milestone" to finish this milestone.</span>
+                                </div>
+                              )}
+                              
                               {/* Timing Information */}
                               <div className="flex items-center space-x-4 text-sm">
-                          {milestone.started_at && (
+                                {milestone.started_at && (
                                   <div className="flex items-center space-x-1 text-gray-500">
                                     <Calendar className="w-4 h-4" />
                                     <span>Started: {new Date(milestone.started_at).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                          
+                                  </div>
+                                )}
+                                
+                                {!milestone.started_at && !milestone.isLocked && milestone.goal_days && (
+                                  <div className="flex items-center space-x-1 text-orange-600">
+                                    <Target className="w-4 h-4" />
+                                    <span>Goal: {milestone.goal_days} days</span>
+                                  </div>
+                                )}
+                                
                                 {milestone.completed_at && (
                                   <div className="flex items-center space-x-1 text-green-600">
                                     <CheckCircle className="w-4 h-4" />
                                     <span>Completed: {new Date(milestone.completed_at).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                          
+                                  </div>
+                                )}
+                                
                                 {daysLeft !== null && daysLeft > 0 && (
                                   <div className="flex items-center space-x-1 text-blue-600">
                                     <Clock className="w-4 h-4" />
                                     <span>{daysLeft} days left</span>
-                            </div>
-                          )}
-                          
+                                  </div>
+                                )}
+                                
                                 {isOverdue && (
                                   <div className="flex items-center space-x-1 text-red-600">
                                     <AlertCircle className="w-4 h-4" />
                                     <span>{milestone.daysOverdue} days overdue</span>
-                                </div>
-                              )}
-                            </div>
+                                  </div>
+                                )}
+                              </div>
                             </div>
                       </div>
                           
                           {/* Action Buttons */}
                           <div className="flex items-center space-x-2">
-                            {/* Only show actions for milestones that are not locked */}
-                            {!milestone.isLocked && milestone.status === "in-progress" && !milestone.started_at && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => startMilestone(milestone.id.toString())}
-                                className="hover:bg-blue-50"
-                        >
-                                Start
-                        </Button>
-                      )}
-                      
-                            {!milestone.isLocked && milestone.status === "in-progress" && milestone.started_at && (
-                        <Button
+                            {/* Show Start button for unlocked milestones that haven't been started yet */}
+                            {!milestone.isLocked && !milestone.started_at && !milestone.completed && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => startMilestone(milestone.id.toString())}
+                                className="hover:bg-blue-50 border-blue-200 text-blue-700"
+                              >
+                                <Play className="w-4 h-4 mr-1" />
+                                Start Milestone
+                              </Button>
+                            )}
+                            
+
+                            
+                            {/* Show Mark Complete button for milestones that are in progress */}
+                            {!milestone.isLocked && milestone.started_at && !milestone.completed && (
+                              <Button
                                 variant="default"
-                          size="sm"
-                          onClick={() => handleMarkComplete(milestone)}
-                          disabled={
-                            updatingMilestones.has(milestone.id.toString()) ||
-                            !milestone.tasks || milestone.tasks.length === 0 ||
-                            !areAllTasksCompleted(milestone)
-                          }
+                                size="sm"
+                                onClick={() => handleMarkComplete(milestone)}
+                                disabled={
+                                  updatingMilestones.has(milestone.id.toString()) ||
+                                  !milestone.tasks || milestone.tasks.length === 0 ||
+                                  !areAllTasksCompleted(milestone)
+                                }
                                 className={`${
-                            !milestone.tasks || milestone.tasks.length === 0 ||
-                            !areAllTasksCompleted(milestone)
-                              ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
-                              : 'bg-green-600 hover:bg-green-700'
-                          }`}
-                        >
-                          {updatingMilestones.has(milestone.id.toString()) 
-                            ? 'Updating...' 
-                            : !milestone.tasks || milestone.tasks.length === 0
-                              ? 'Load Tasks First'
-                              : !areAllTasksCompleted(milestone)
-                              ? 'Complete All Tasks First'
-                              : 'Mark Complete'}
-                        </Button>
-                      )}
-                      
-                      {/* Debug info for milestone completion */}
-                      {!milestone.isLocked && milestone.status === "in-progress" && milestone.started_at && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Debug: Tasks loaded: {milestone.tasks ? milestone.tasks.length : 0}, 
-                          All completed: {milestone.tasks ? areAllTasksCompleted(milestone) : 'N/A'}
-                        </div>
-                      )}
+                                  !milestone.tasks || milestone.tasks.length === 0 ||
+                                  !areAllTasksCompleted(milestone)
+                                    ? 'bg-gray-400 hover:bg-gray-400 cursor-not-allowed'
+                                    : 'bg-green-600 hover:bg-green-700'
+                                }`}
+                              >
+                                {updatingMilestones.has(milestone.id.toString()) 
+                                  ? 'Updating...' 
+                                  : !milestone.tasks || milestone.tasks.length === 0
+                                    ? 'Load Tasks First'
+                                    : !areAllTasksCompleted(milestone)
+                                    ? 'Complete All Tasks First'
+                                    : 'Complete Milestone'}
+                              </Button>
+                            )}
+                            
+                            {/* Debug info for milestone completion */}
+                            {!milestone.isLocked && milestone.started_at && !milestone.completed && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                Debug: Tasks loaded: {milestone.tasks ? milestone.tasks.length : 0}, 
+                                All completed: {milestone.tasks ? areAllTasksCompleted(milestone) : 'N/A'}
+                              </div>
+                            )}
                             
                       {/* Toggle button - only allow for non-locked milestones or to show locked status */}
                       <Button

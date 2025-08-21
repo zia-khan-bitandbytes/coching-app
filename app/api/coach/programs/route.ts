@@ -3,7 +3,7 @@ import pool from '@/lib/db'
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, description, price, coach_id } = await request.json()
+    const { name, description, price, duration_days, coach_id } = await request.json()
     
     if (!name || !description || !coach_id) {
       return NextResponse.json({ 
@@ -12,11 +12,32 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    const result = await pool.query(`
-      INSERT INTO coaching_programs (coach_id, name, description, price, is_active)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING id, name, description, price, is_active, created_at
-    `, [coach_id, name, description, price || 0, true])
+    // Check if duration_days column exists
+    const columnCheck = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'coaching_programs' 
+      AND column_name = 'duration_days'
+    `)
+
+    const hasDurationColumn = columnCheck.rows.length > 0
+
+    let result: any
+    if (hasDurationColumn) {
+      // Use the new query with duration_days - insert into both name and title columns
+      result = await pool.query(`
+        INSERT INTO coaching_programs (coach_id, name, title, description, price, duration_days, is_active)
+        VALUES ($1, $2, $2, $3, $4, $5, $6)
+        RETURNING id, name, title, description, price, duration_days, is_active, created_at
+      `, [coach_id, name, description, price || 0, duration_days || 30, true])
+    } else {
+      // Use the old query without duration_days - insert into both name and title columns
+      result = await pool.query(`
+        INSERT INTO coaching_programs (coach_id, name, title, description, price, is_active)
+        VALUES ($1, $2, $2, $3, $4, $5)
+        RETURNING id, name, title, description, price, is_active, created_at
+      `, [coach_id, name, description, price || 0, true])
+    }
 
     const newProgram = result.rows[0]
     
@@ -27,6 +48,7 @@ export async function POST(request: NextRequest) {
         name: newProgram.name,
         description: newProgram.description,
         price: parseFloat(newProgram.price),
+        duration_days: hasDurationColumn ? (parseInt(newProgram.duration_days) || 30) : 30,
         is_active: newProgram.is_active,
         created_at: newProgram.created_at
       }

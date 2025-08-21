@@ -53,7 +53,7 @@ function CoachDashboardContent({ user }: CoachDashboardContentProps) {
             <p className="text-gray-600 mt-1">Manage your coaching members</p>
           </div>
         </div>
-        <MemberManagement />
+        <MemberManagement coachId={user.coach_id || user.id} />
       </div>
     )
   }
