@@ -70,16 +70,16 @@ export async function GET(
           m.goal_days,
           m.order_index,
           mp.completed,
-          mp.started_at,
+          mp.created_at as started_at,
           mp.completed_at,
           CASE 
             WHEN mp.completed = true THEN 'completed'
-            WHEN mp.started_at IS NOT NULL THEN 'in-progress'
+            WHEN mp.created_at IS NOT NULL THEN 'in-progress'
             ELSE 'upcoming'
           END as status,
           CASE 
-            WHEN mp.completed = true AND mp.started_at IS NOT NULL THEN
-              EXTRACT(EPOCH FROM (mp.completed_at - mp.started_at)) / 86400
+            WHEN mp.completed = true AND mp.created_at IS NOT NULL THEN
+              EXTRACT(EPOCH FROM (mp.completed_at - mp.created_at)) / 86400
             ELSE NULL
           END as completion_days
         FROM milestones m

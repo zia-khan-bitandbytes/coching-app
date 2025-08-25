@@ -21,7 +21,8 @@ import {
   Award,
   BookOpen,
   Zap,
-  User
+  User,
+  Lock
 } from "lucide-react"
 
 interface CustomerDetails {
@@ -52,7 +53,7 @@ interface MilestoneDetail {
   description: string
   goal_days: number
   order_index: number
-  status: 'completed' | 'in-progress' | 'upcoming'
+  status?: 'completed' | 'in-progress' | 'locked'
   started_at?: string
   completed_at?: string
   completion_days?: number
@@ -103,11 +104,22 @@ export function MemberDetailsDialog({ customer, isOpen, onClose, coachId }: Memb
     return Math.round((program.completed_milestones / program.milestones_count) * 100)
   }
 
+  const getMilestoneStatus = (milestone: MilestoneDetail) => {
+    if (milestone.completed_at) {
+      return 'completed'
+    } else if (milestone.started_at) {
+      return 'in-progress'
+    } else {
+      // Check if previous milestone is completed to determine if this one is locked
+      return 'locked'
+    }
+  }
+
   const getMilestoneStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800'
       case 'in-progress': return 'bg-blue-100 text-blue-800'
-      case 'upcoming': return 'bg-gray-100 text-gray-800'
+      case 'locked': return 'bg-gray-100 text-gray-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -116,8 +128,8 @@ export function MemberDetailsDialog({ customer, isOpen, onClose, coachId }: Memb
     switch (status) {
       case 'completed': return <CheckCircle className="h-4 w-4" />
       case 'in-progress': return <Clock className="h-4 w-4" />
-      case 'upcoming': return <Target className="h-4 w-4" />
-      default: return <Target className="h-4 w-4" />
+      case 'locked': return <Lock className="h-4 w-4" />
+      default: return <Lock className="h-4 w-4" />
     }
   }
 
@@ -310,9 +322,9 @@ export function MemberDetailsDialog({ customer, isOpen, onClose, coachId }: Memb
                                       #{milestone.order_index || 'N/A'}
                                     </span>
                                     <h5 className="font-medium">{milestone.title || 'Untitled Milestone'}</h5>
-                                    <Badge className={getMilestoneStatusColor(milestone.status || 'upcoming')}>
-                                      {getMilestoneStatusIcon(milestone.status || 'upcoming')}
-                                      <span className="ml-1">{milestone.status || 'upcoming'}</span>
+                                    <Badge className={getMilestoneStatusColor(getMilestoneStatus(milestone))}>
+                                      {getMilestoneStatusIcon(getMilestoneStatus(milestone))}
+                                      <span className="ml-1">{getMilestoneStatus(milestone)}</span>
                                     </Badge>
                                   </div>
                                   <p className="text-sm text-gray-600 mb-2">{milestone.description || 'No description available'}</p>
@@ -341,8 +353,8 @@ export function MemberDetailsDialog({ customer, isOpen, onClose, coachId }: Memb
                                       </div>
                                     )}
                                     <div className="flex items-center gap-1">
-                                      <Badge className={getMilestoneStatusColor(milestone.status || 'upcoming')}>
-                                        {milestone.status || 'upcoming'}
+                                      <Badge className={getMilestoneStatusColor(getMilestoneStatus(milestone))}>
+                                        {getMilestoneStatus(milestone)}
                                       </Badge>
                                     </div>
                                   </div>

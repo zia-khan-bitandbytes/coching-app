@@ -96,6 +96,7 @@ interface TTVMetrics {
     completionDays: number
     goalDays: number
     progress: number
+    daysDifference: number
   }[]
 }
 
@@ -331,20 +332,32 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
         const goalDays = milestone.goal_days || 30
         const avgCompletionDays = milestone.avg_completion_days || 0
         
-        // Calculate efficiency: if we complete in goal time or less, efficiency is 100% or higher
-        // If we take longer than goal, efficiency decreases
-        // If no completion time recorded yet, assume we're on track (100% efficiency)
+        // Calculate efficiency: higher efficiency means completing faster than goal
+        // If we complete in goal time or less, efficiency is 100% or higher
+        // If we take longer than goal, efficiency decreases below 100%
         let efficiency = 100
         let progress = 100
+        let daysDifference = 0
         
-        if (avgCompletionDays > 0) {
-          efficiency = goalDays > 0 ? Math.round((goalDays / avgCompletionDays) * 100) : 100
-          progress = goalDays > 0 ? Math.min(100, (goalDays / avgCompletionDays) * 100) : 100
+        if (avgCompletionDays > 0 && goalDays > 0) {
+          // Efficiency: goal time / actual time * 100
+          // If actual time < goal time, efficiency > 100% (excellent)
+          // If actual time = goal time, efficiency = 100% (on target)
+          // If actual time > goal time, efficiency < 100% (needs improvement)
+          efficiency = Math.round((goalDays / avgCompletionDays) * 100)
+          
+          // Progress: how close we are to the goal (100% = on target, >100% = ahead, <100% = behind)
+          progress = Math.round((goalDays / avgCompletionDays) * 100)
+          
+                  // Days difference: positive = ahead of schedule, negative = behind schedule
+        // But we'll handle the display logic to avoid showing negative numbers
+        daysDifference = goalDays - avgCompletionDays
         }
         
-        // Status logic: efficiency >= 100 means we're meeting or beating the goal (on track)
-        // efficiency < 100 means we're taking longer than goal (over target)
-        const status = efficiency >= 100 ? 'on track' : 'over target'
+        // Status logic: 
+        // - efficiency >= 100: meeting or beating the goal (on track or ahead)
+        // - efficiency < 100: taking longer than goal (behind schedule)
+        const status = efficiency >= 100 ? 'on track' : 'behind schedule'
         
         breakdown.push({
           milestone: milestone.title,
@@ -354,7 +367,8 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
           status: status,
           completionDays: Math.round(avgCompletionDays),
           goalDays: goalDays,
-          progress: progress
+          progress: progress,
+          daysDifference: daysDifference
         })
       }
     })
@@ -365,15 +379,17 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
     // Calculate overall goal TTV (weighted average of milestone goals)
     const overallGoalTTV = totalCompleted > 0 ? Math.round(totalGoalDays / totalCompleted) : 30
     
-    const overTarget = Math.max(0, avgTTV - overallGoalTTV)
-    // Overall efficiency: if we're meeting or beating the goal, efficiency is 100% or higher
-    // If no completion time recorded yet, assume we're on track (100% efficiency)
+    // Calculate how many days we are over/under the goal
+    // Positive = ahead of schedule, negative = behind schedule
+    const daysDifference = overallGoalTTV - avgTTV
+    
+    // Overall efficiency: goal time / actual time * 100
     const overallEfficiency = overallGoalTTV > 0 && avgTTV > 0 ? Math.round((overallGoalTTV / avgTTV) * 100) : 100
 
     setTtvMetrics({
       totalTTV: avgTTV,
       goalTTV: overallGoalTTV,
-      overTarget: overTarget,
+      overTarget: Math.max(0, daysDifference), // Only show positive over-target values
       efficiency: overallEfficiency,
       milestoneBreakdown: breakdown
     })
@@ -397,6 +413,31 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
   const getNewCustomersThisMonth = () => {
     // Simulate new customers based on enrollment dates
     return filteredCustomers.slice(0, growthMetrics.newCustomersThisMonth)
+  }
+
+  // Helper function to format TTV performance display (eliminates negative numbers)
+  const formatTTVPerformance = (goalDays: number, avgCompletionDays: number) => {
+    const daysDifference = goalDays - avgCompletionDays
+    
+    if (daysDifference > 0) {
+      return {
+        text: `${daysDifference} days ahead of goal`,
+        color: 'text-green-600',
+        status: 'ahead'
+      }
+    } else if (daysDifference < 0) {
+      return {
+        text: `${Math.abs(daysDifference)} days over goal`,
+        color: 'text-orange-600',
+        status: 'over'
+      }
+    } else {
+      return {
+        text: 'On target',
+        color: 'text-blue-600',
+        status: 'on-target'
+      }
+    }
   }
 
   // Helper function to get completed customers
@@ -2197,10 +2238,24 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
             <div className="flex items-center text-gray-600 text-sm group-hover:text-gray-700 transition-colors duration-300">
               <span>Goal: {ttvMetrics.goalTTV} days</span>
             </div>
-            {ttvMetrics.overTarget > 0 && (
-              <div className="flex items-center text-orange-600 text-sm font-medium">
+            {ttvMetrics.totalTTV > 0 && ttvMetrics.goalTTV > 0 && (
+              <div className={`flex items-center text-sm font-medium ${ttvMetrics.totalTTV <= ttvMetrics.goalTTV ? 'text-green-600' : 'text-orange-600'}`}>
+                {ttvMetrics.totalTTV <= ttvMetrics.goalTTV ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 mr-1" />
+                    <span>
+                      {ttvMetrics.goalTTV - ttvMetrics.totalTTV > 0 
+                        ? `${ttvMetrics.goalTTV - ttvMetrics.totalTTV} days ahead of goal`
+                        : 'On target'
+                      }
+                    </span>
+                  </>
+                ) : (
+                  <>
                 <AlertCircle className="w-4 h-4 mr-1" />
-                <span>{ttvMetrics.overTarget} days over target</span>
+                    <span>{ttvMetrics.totalTTV - ttvMetrics.goalTTV} days over goal</span>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -2303,7 +2358,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                   <div className="text-right">
                     <div className="text-sm font-medium text-gray-900">{item.completed} Completed</div>
                     <div className={`text-sm font-medium ${item.efficiency >= 100 ? 'text-green-600' : 'text-orange-600'}`}>
-                      {item.efficiency}% Efficiency
+                      {item.efficiency > 150 ? '150%+' : item.efficiency}% Efficiency
                     </div>
                   </div>
                 </div>
@@ -2313,6 +2368,14 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                     <span className="text-gray-600">{item.completionDays} days</span>
                     <span className="text-gray-500">vs</span>
                     <span className="text-gray-600">Goal: {item.goalDays}d</span>
+                    {(() => {
+                      const performance = formatTTVPerformance(item.goalDays, item.completionDays)
+                      return (
+                        <span className={`text-sm font-medium ${performance.color}`}>
+                          ({performance.text})
+                        </span>
+                      )
+                    })()}
                   </div>
                   <Badge 
                     variant={item.status === 'on track' ? 'default' : 'secondary'}
@@ -2324,16 +2387,45 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                 
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs text-gray-500">
-                    <span>Progress vs Goal</span>
-                    <span>{Math.round(item.progress)}%</span>
+                    <span>Performance vs Goal</span>
+                    <span>{(() => {
+                      const performance = formatTTVPerformance(item.goalDays, item.completionDays)
+                      return performance.text
+                    })()}</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className={`h-2 rounded-full transition-all duration-300 ${
-                        item.efficiency >= 100 ? 'bg-green-500' : 'bg-orange-500'
+                        (() => {
+                          const performance = formatTTVPerformance(item.goalDays, item.completionDays)
+                          if (performance.status === 'ahead') return 'bg-green-500'
+                          if (performance.status === 'over') return 'bg-orange-500'
+                          return 'bg-blue-500'
+                        })()
                       }`}
-                      style={{ width: `${Math.min(100, item.progress)}%` }}
+                      style={{ 
+                        width: (() => {
+                          const performance = formatTTVPerformance(item.goalDays, item.completionDays)
+                          if (performance.status === 'ahead') {
+                            const daysAhead = item.goalDays - item.completionDays
+                            return `${Math.min(100, 100 + (daysAhead / item.goalDays) * 100)}%`
+                          } else if (performance.status === 'over') {
+                            const daysOver = item.completionDays - item.goalDays
+                            return `${Math.max(0, 100 - (daysOver / item.goalDays) * 100)}%`
+                          } else {
+                            return '100%'
+                          }
+                        })()
+                      }}
                     ></div>
+                  </div>
+                  <div className="text-xs text-gray-500 text-center">
+                    {(() => {
+                      const performance = formatTTVPerformance(item.goalDays, item.completionDays)
+                      if (performance.status === 'ahead') return 'Exceeding goal'
+                      if (performance.status === 'over') return 'Behind goal'
+                      return 'On target'
+                    })()}
                   </div>
                 </div>
               </div>
@@ -2367,6 +2459,15 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
                 </div>
                 <div className="text-sm text-gray-600 mb-2">
                   {item.completionDays} days avg • {item.completed} completion
+                  {(() => {
+                    const performance = formatTTVPerformance(item.goalDays, item.completionDays)
+                    if (performance.status === 'on-target') return null
+                    return (
+                      <span className={`ml-2 font-medium ${performance.color}`}>
+                        ({performance.text})
+                      </span>
+                    )
+                  })()}
                 </div>
                 <div className="text-xs text-gray-500">{item.program}</div>
               </div>
@@ -2390,24 +2491,40 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
             <div className="border-l-4 border-green-500 pl-4">
               <h3 className="font-semibold text-green-800 mb-2">Performing Well</h3>
               {ttvMetrics.milestoneBreakdown
-                .filter(item => item.efficiency >= 100)
+                .filter(item => {
+                  const performance = formatTTVPerformance(item.goalDays, item.completionDays)
+                  return performance.status === 'ahead'
+                })
                 .map((item, index) => (
                   <div key={index} className="flex items-center space-x-2 text-sm text-green-700 mb-1">
                     <CheckCircle className="w-4 h-4" />
-                    <span>{item.milestone}: {item.completionDays} days vs {item.goalDays} day goal ({item.program})</span>
+                    <span>
+                      {item.milestone}: {item.completionDays} days vs {item.goalDays} day goal 
+                      <span className="font-medium"> ({formatTTVPerformance(item.goalDays, item.completionDays).text})</span>
+                      ({item.program})
+                    </span>
                   </div>
                 ))}
             </div>
             
-            {ttvMetrics.milestoneBreakdown.filter(item => item.efficiency < 100).length > 0 && (
+            {ttvMetrics.milestoneBreakdown.filter(item => {
+              const performance = formatTTVPerformance(item.goalDays, item.completionDays)
+              return performance.status === 'over'
+            }).length > 0 && (
               <div className="border-l-4 border-orange-500 pl-4">
                 <h3 className="font-semibold text-orange-800 mb-2">Areas for Improvement</h3>
                 {ttvMetrics.milestoneBreakdown
-                  .filter(item => item.efficiency < 100)
+                  .filter(item => {
+                    const performance = formatTTVPerformance(item.goalDays, item.completionDays)
+                    return performance.status === 'over'
+                  })
                   .map((item, index) => (
                     <div key={index} className="flex items-center space-x-2 text-sm text-orange-700 mb-1">
                       <AlertCircle className="w-4 h-4" />
-                      <span>{item.milestone}: {item.completionDays} days vs {item.goalDays} day goal ({item.program})</span>
+                      <span>
+                        {item.milestone}: {item.completionDays} days vs {item.goalDays} day goal 
+                        <span className="font-medium"> ({formatTTVPerformance(item.goalDays, item.completionDays).text})</span> ({item.program})
+                      </span>
                     </div>
                   ))}
               </div>
@@ -2417,103 +2534,7 @@ export function CoachDashboard({ coachId }: { coachId: string }) {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Current Programs Section */}
-        <div className="group bg-white rounded-xl p-6 border border-gray-200 hover:shadow-xl hover:border-gray-300 transition-all duration-300 transform hover:scale-[1.02]">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center group-hover:bg-gray-200 group-hover:scale-110 transition-all duration-300">
-                <BookOpen className="w-5 h-5 text-gray-700 group-hover:text-black transition-colors duration-300" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">Current Programs</h2>
-            </div>
-            <button 
-              onClick={() => setActiveSection('programs')}
-              className="px-4 py-2 text-gray-700 hover:text-white text-sm font-medium rounded-lg transition-all duration-300 hover:bg-gray-900 border border-gray-300 hover:border-gray-900 hover:scale-105"
-            >
-              View All
-            </button>
-          </div>
-          <div className="space-y-4">
-            {(selectedProgram === "all" ? programs.slice(0, 3) : programs.filter(p => p.id === selectedProgram)).map((program, index) => (
-              <div 
-                key={program.id} 
-                className="group/item flex items-center space-x-4 p-4 bg-gray-50 rounded-xl border border-gray-200 hover:shadow-lg hover:bg-white hover:border-gray-300 transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1"
-              >
-                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center group-hover/item:bg-gray-200 group-hover/item:scale-110 transition-all duration-300">
-                  <BookOpen className="w-6 h-6 text-gray-700 group-hover/item:text-black transition-colors duration-300" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 group-hover/item:text-black transition-colors duration-300">{program.name}</h3>
-                  <p className="text-sm text-gray-600 flex items-center space-x-1 group-hover/item:text-gray-700 transition-colors duration-300">
-                    <Users className="w-4 h-4" />
-                    <span>{program.members_count || 0} members</span>
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-bold text-gray-900 group-hover/item:text-black transition-colors duration-300">${program.price}</div>
-                  <div className="flex items-center space-x-1 text-xs text-gray-600 group-hover/item:text-gray-700 transition-colors duration-300">
-                    <div className="w-2 h-2 bg-gray-500 rounded-full group-hover/item:bg-gray-700 transition-colors duration-300"></div>
-                    <span>Active</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-                {/* Revenue Overview Section */}
-        <div className="group bg-white rounded-xl p-6 border border-gray-200 hover:shadow-xl hover:border-gray-300 transition-all duration-300 transform hover:scale-[1.02]">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center group-hover:bg-gray-200 group-hover:scale-110 transition-all duration-300">
-                <TrendingUp className="w-5 h-5 text-gray-700 group-hover:text-black transition-colors duration-300" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">Revenue Overview</h2>
-            </div>
-            <div className="flex space-x-2">
-              <button className="px-3 py-1 bg-gray-900 text-white text-sm rounded-lg hover:scale-105 transition-transform duration-300">Weekly</button>
-              <button className="px-3 py-1 bg-white text-gray-600 text-sm rounded-lg border hover:bg-gray-50 hover:border-gray-300 transition-all duration-300">Monthly</button>
-            </div>
-          </div>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                      <div>
-                <p className="text-3xl font-bold text-gray-900 group-hover:text-black transition-colors duration-300">${stats.monthlyRevenue}</p>
-                <p className="text-sm text-gray-600 flex items-center space-x-1 group-hover:text-gray-700 transition-colors duration-300">
-                  <Calendar className="w-4 h-4" />
-                  <span>This month</span>
-                </p>
-                      </div>
-              <div className="text-right">
-                <div className="flex items-center space-x-1 text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors duration-300">
-                  <svg className="w-4 h-4 group-hover:scale-110 transition-transform duration-300" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clipRule="evenodd" />
-                  </svg>
-                  <span>+12.5%</span>
-                    </div>
-                <div className="text-xs text-gray-500">vs last month</div>
-              </div>
-            </div>
-            {/* Chart */}
-            <div className="h-32 bg-gray-50 rounded-xl p-4 border border-gray-200 group-hover:bg-gray-100 group-hover:border-gray-300 transition-all duration-300">
-              <div className="flex items-end justify-around h-full space-x-2">
-                {[20, 35, 25, 45, 30, 50, 40].map((height, index) => (
-                  <div
-                    key={index}
-                    className="group/bar w-8 bg-gray-700 rounded-t-lg transition-all duration-300 hover:bg-gray-900 hover:scale-110"
-                    style={{ height: `${height}%` }}
-                  >
-                    <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/bar:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-                      ${Math.round(height * 2.5)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Current Programs and Revenue Overview cards removed */}
 
             {/* Programs Performance Section */}
       <div className="group bg-white rounded-xl p-6 border border-gray-200 hover:shadow-xl hover:border-gray-300 transition-all duration-300 transform hover:scale-[1.01]">

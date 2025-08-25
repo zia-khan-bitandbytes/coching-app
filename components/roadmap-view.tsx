@@ -12,7 +12,7 @@ interface Milestone {
   id: number
   title: string
   description: string
-  status: 'completed' | 'in-progress' | 'upcoming' | 'locked'
+  status: 'completed' | 'in-progress' | 'locked'
   progress: number
   duration: string
   rewards?: string[]
@@ -58,7 +58,7 @@ const sampleMilestones: Milestone[] = [
     id: 4,
     title: "Implementation Phase",
     description: "Execute your strategic plans",
-    status: 'upcoming',
+            status: 'locked',
     progress: 0,
     duration: "4 weeks",
     rewards: ["Implementation Badge", "300 Points"],
@@ -121,8 +121,7 @@ export function RoadmapView() {
         return <CheckCircle className="h-6 w-6 text-green-500" />
       case 'in-progress':
         return <Play className="h-6 w-6 text-blue-500" />
-      case 'upcoming':
-        return <Clock className="h-6 w-6 text-yellow-500" />
+
       case 'locked':
         return <Lock className="h-6 w-6 text-gray-400" />
       default:
@@ -136,8 +135,7 @@ export function RoadmapView() {
         return 'bg-green-100 text-green-800 border-green-200'
       case 'in-progress':
         return 'bg-blue-100 text-blue-800 border-blue-200'
-      case 'upcoming':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+
       case 'locked':
         return 'bg-gray-100 text-gray-600 border-gray-200'
       default:

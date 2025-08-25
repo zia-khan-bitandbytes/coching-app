@@ -23,7 +23,13 @@
     "db:test-users": "tsx scripts/create-test-users.ts",
     "db:create-test": "tsx scripts/create-simple-test-user.ts",
     "db:sample-data": "tsx scripts/create-sample-data.ts",
-    "db:fix-coaches": "tsx scripts/fix-missing-coaches.ts"
+    "db:fix-coaches": "tsx scripts/fix-missing-coaches.ts",
+    "db:create-test-members": "tsx scripts/create-test-members-for-coach1.ts",
+    "db:fix-passwords": "tsx scripts/fix-test-member-passwords.ts",
+    "db:fix-sequential": "tsx scripts/fix-sequential-milestones.ts",
+    "db:clear-test": "tsx scripts/clear-test-data.ts",
+    "db:create-comprehensive": "tsx scripts/create-comprehensive-test-data.ts",
+    "db:fix-comprehensive-passwords": "tsx scripts/fix-comprehensive-passwords.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

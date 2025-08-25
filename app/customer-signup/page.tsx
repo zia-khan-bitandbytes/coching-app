@@ -437,7 +437,7 @@ export default function CustomerSignupPage() {
                               {step.title}
                             </div>
                             <div className="text-xs text-gray-500">
-                              {isActive ? 'Current step' : isCompleted ? 'Completed' : 'Upcoming'}
+                              {isActive ? 'Current step' : isCompleted ? 'Completed' : 'Locked'}
                             </div>
                           </div>
                         </motion.div>

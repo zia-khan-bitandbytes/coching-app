@@ -62,7 +62,7 @@ interface MilestoneDetail {
   description: string
   goal_days: number
   order_index: number
-  status: 'completed' | 'in-progress' | 'upcoming'
+  status: 'completed' | 'in-progress' | 'locked'
   started_at?: string
   completed_at?: string
   completion_days?: number

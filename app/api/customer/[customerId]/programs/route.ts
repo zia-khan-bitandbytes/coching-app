@@ -24,7 +24,7 @@ export async function GET(
         m.goal_days,
         mp.completed as milestone_completed,
         mp.completed_at as milestone_completed_at,
-        mp.started_at as milestone_started_at,
+        mp.created_at as milestone_started_at,
         mp.notes as milestone_notes
       FROM coaching_programs cp
       JOIN user_programs up ON cp.id = up.program_id
@@ -106,7 +106,7 @@ export async function GET(
           goal_days: row.goal_days,
           completed: row.milestone_completed || false,
           completed_at: row.milestone_completed_at,
-          started_at: row.milestone_started_at,
+          progress_created_at: row.milestone_started_at,
           notes: row.milestone_notes,
           status,
           isLocked,

@@ -66,7 +66,7 @@ interface Milestone {
   isLocked: boolean
   completed: boolean
   completed_at?: string
-  started_at?: string
+  progress_created_at?: string // When milestone progress record was created (started)
   notes?: string
   program_name: string
   program_id: number
@@ -261,7 +261,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                     completed: true, 
                     completed_at: new Date().toISOString(), 
                     status: "completed",
-                    started_at: m.started_at || new Date().toISOString() // Ensure started_at exists
+                    progress_created_at: m.progress_created_at || new Date().toISOString() // Ensure progress_created_at exists
                   }
                 : m
             )
@@ -328,7 +328,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
               m.id.toString() === milestoneId
                 ? { 
                     ...m, 
-                    started_at: new Date().toISOString(), 
+                    progress_created_at: new Date().toISOString(), 
                     status: "in-progress", 
                     isLocked: false,
                     completed: false // Ensure completed is false when starting
@@ -520,7 +520,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
     switch (status) {
       case "completed": return 'bg-green-100 text-green-800 border-green-200'
       case "in-progress": return 'bg-blue-100 text-blue-800 border-blue-200'
-      case "upcoming": return 'bg-orange-100 text-orange-800 border-orange-200'
+      case "locked": return 'bg-gray-100 text-gray-800 border-gray-200'
       case "locked": return 'bg-gray-100 text-gray-600 border-gray-200'
       default: return 'bg-gray-100 text-gray-600 border-gray-200'
     }
@@ -531,9 +531,9 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
   }
 
   const calculateDaysLeft = (milestone: Milestone) => {
-    if (milestone.completed || !milestone.goal_days || !milestone.started_at) return null
-    
-    const startDate = new Date(milestone.started_at)
+      if (milestone.completed || !milestone.goal_days || !milestone.progress_created_at) return null
+  
+  const startDate = new Date(milestone.progress_created_at)
     const currentDate = new Date()
     const elapsedDays = Math.ceil((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
     const daysLeft = milestone.goal_days - elapsedDays
@@ -728,7 +728,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                   >
                     <Card className={`transition-all duration-300 hover:shadow-lg ${
                       milestone.completed ? "border-green-200 bg-green-50" :
-                      milestone.started_at ? "border-blue-200 bg-blue-50" :
+                      milestone.progress_created_at ? "border-blue-200 bg-blue-50" :
                       !milestone.isLocked ? "border-orange-200 bg-orange-50" :
                       "border-gray-200"
                     }`}>
@@ -738,7 +738,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                             {/* Milestone Icon */}
                             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
                           milestone.completed ? "bg-green-500" :
-                              milestone.started_at ? "bg-blue-500" :
+                              milestone.progress_created_at ? "bg-blue-500" :
                               !milestone.isLocked ? "bg-orange-500" :
                           "bg-gray-300"
                             }`}>
@@ -750,8 +750,8 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                               <div className="flex items-center space-x-3 mb-2">
                                 <h3 className="text-lg font-semibold text-gray-900">{milestone.title}</h3>
                                 <div className="flex items-center space-x-2">
-                                  <Badge className={getStatusColor(milestone.completed ? "completed" : milestone.started_at ? "in-progress" : !milestone.isLocked ? "upcoming" : "locked")}>
-                                    {milestone.completed ? "completed" : milestone.started_at ? "in progress" : !milestone.isLocked ? "upcoming" : "locked"}
+                                  <Badge className={getStatusColor(milestone.completed ? "completed" : milestone.progress_created_at ? "in-progress" : "locked")}>
+                                    {milestone.completed ? "completed" : milestone.progress_created_at ? "in progress" : "locked"}
                                   </Badge>
                                   {milestone.isLocked && (
                                     <Lock className="w-4 h-4 text-gray-500" />
@@ -767,6 +767,44 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                               
                               <p className="text-gray-600 mb-3">{milestone.description}</p>
                               
+                              {/* Milestone Status Summary */}
+                              <div className="flex flex-wrap items-center gap-2 mb-3">
+                                {milestone.progress_created_at && (
+                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                    <Calendar className="w-3 h-3 mr-1" />
+                                    Started {new Date(milestone.progress_created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  </Badge>
+                                )}
+                                
+                                {milestone.completed_at && (
+                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Completed {new Date(milestone.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                                  </Badge>
+                                )}
+                                
+                                {milestone.goal_days && (
+                                  <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                                    <Target className="w-3 h-3 mr-1" />
+                                    Goal: {milestone.goal_days} days
+                                  </Badge>
+                                )}
+                                
+                                {daysLeft !== null && daysLeft > 0 && (
+                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    {daysLeft} days left
+                                  </Badge>
+                                )}
+                                
+                                {isOverdue && (
+                                  <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+                                    <AlertCircle className="w-3 h-3 mr-1" />
+                                    {milestone.daysOverdue} days overdue
+                                  </Badge>
+                                )}
+                              </div>
+                              
                               {/* Locked milestone message */}
                               {milestone.isLocked && (
                                 <div className="flex items-center space-x-2 text-sm text-gray-500 mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -775,18 +813,12 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                                 </div>
                               )}
                               
-                              {/* Upcoming milestone message */}
-                              {!milestone.isLocked && !milestone.started_at && !milestone.completed && (
-                                <div className="flex items-center space-x-2 text-sm text-orange-600 mb-3 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                                  <Play className="w-4 h-4" />
-                                  <span>This milestone is ready to start! Click "Start Milestone" to begin working on it.</span>
-                                </div>
-                              )}
+
                               
 
                               
                               {/* In-progress milestone message */}
-                              {!milestone.isLocked && milestone.started_at && !milestone.completed && (
+                              {!milestone.isLocked && milestone.progress_created_at && !milestone.completed && (
                                 <div className="flex items-center space-x-2 text-sm text-blue-600 mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
                                   <Play className="w-4 h-4" />
                                   <span>Milestone started - You can now work on the tasks below.</span>
@@ -794,49 +826,190 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                               )}
                               
                               {/* Ready to complete milestone message */}
-                              {!milestone.isLocked && milestone.started_at && !milestone.completed && milestone.tasks && milestone.tasks.length > 0 && areAllTasksCompleted(milestone) && (
+                              {!milestone.isLocked && milestone.progress_created_at && !milestone.completed && milestone.tasks && milestone.tasks.length > 0 && areAllTasksCompleted(milestone) && (
                                 <div className="flex items-center space-x-2 text-sm text-green-600 mb-3 p-3 bg-green-50 rounded-lg border border-green-200">
                                   <CheckCircle className="w-4 h-4" />
                                   <span>All tasks completed! Click "Complete Milestone" to finish this milestone.</span>
                                 </div>
                               )}
                               
-                              {/* Timing Information */}
-                              <div className="flex items-center space-x-4 text-sm">
-                                {milestone.started_at && (
-                                  <div className="flex items-center space-x-1 text-gray-500">
-                                    <Calendar className="w-4 h-4" />
-                                    <span>Started: {new Date(milestone.started_at).toLocaleDateString()}</span>
+                              {/* Visual Timeline */}
+                              {(milestone.progress_created_at || milestone.completed_at) && (
+                                <div className="mb-3">
+                                  <div className="flex items-center space-x-4 text-xs text-gray-500 mb-2">
+                                    <span className="font-medium">Timeline:</span>
                                   </div>
-                                )}
+                                  <div className="flex items-center space-x-2">
+                                    {/* Enrollment/Start Point */}
+                                    <div className="flex flex-col items-center">
+                                      <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
+                                      <span className="text-xs text-gray-500 mt-1">Enrolled</span>
+                                    </div>
+                                    
+                                    {/* Timeline Line */}
+                                    <div className="flex-1 h-0.5 bg-gray-300"></div>
+                                    
+                                    {/* Start Point */}
+                                    {milestone.progress_created_at && (
+                                      <>
+                                        <div className="flex flex-col items-center">
+                                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                                          <span className="text-xs text-blue-600 mt-1">Started</span>
+                                        </div>
+                                        <div className="flex-1 h-0.5 bg-gray-300"></div>
+                                      </>
+                                    )}
+                                    
+                                    {/* Completion Point */}
+                                    {milestone.completed_at ? (
+                                      <div className="flex flex-col items-center">
+                                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                                        <span className="text-xs text-green-600 mt-1">Completed</span>
+                                      </div>
+                                    ) : milestone.progress_created_at ? (
+                                      <div className="flex flex-col items-center">
+                                        <div className="w-3 h-3 bg-orange-400 rounded-full border-2 border-dashed border-orange-300"></div>
+                                        <span className="text-xs text-orange-600 mt-1">In Progress</span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex flex-col items-center">
+                                        <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                                        <span className="text-xs text-gray-500 mt-1">Locked</span>
+                                      </div>
+                                    )}
+                                                                </div>
+                            </div>
+                          )}
+                          
+                          {/* Performance Summary */}
+                          {milestone.completed_at && milestone.progress_created_at && milestone.goal_days && (
+                            <div className="mt-4 p-3 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <TrendingUp className="w-4 h-4 text-purple-600" />
+                                <span className="text-sm font-semibold text-purple-800">Performance Summary</span>
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                {(() => {
+                                  const startDate = new Date(milestone.progress_created_at)
+                                  const endDate = new Date(milestone.completed_at)
+                                  const actualDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+                                  const daysDiff = milestone.goal_days - actualDays
+                                  const efficiency = Math.round((milestone.goal_days / actualDays) * 100)
+                                  
+                                  return (
+                                    <>
+                                      <div className="text-center">
+                                        <div className="text-lg font-bold text-purple-700">{actualDays}</div>
+                                        <div className="text-xs text-purple-600">Days Taken</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className={`text-lg font-bold ${
+                                          daysDiff > 0 ? 'text-green-700' : daysDiff < 0 ? 'text-orange-700' : 'text-blue-700'
+                                        }`}>
+                                          {daysDiff > 0 ? `+${daysDiff}` : daysDiff < 0 ? daysDiff : '0'}
+                                        </div>
+                                        <div className="text-xs text-gray-600">vs Goal</div>
+                                      </div>
+                                      <div className="text-center">
+                                        <div className={`text-lg font-bold ${
+                                          efficiency >= 100 ? 'text-green-700' : efficiency >= 80 ? 'text-orange-700' : 'text-red-700'
+                                        }`}>
+                                          {efficiency}%
+                                        </div>
+                                        <div className="text-xs text-gray-600">Efficiency</div>
+                                      </div>
+                                    </>
+                                  )
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                              
+                              {/* Enhanced Timing Information */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 p-3 bg-gray-50 rounded-lg border">
+                                <div className="space-y-2">
+                                  <h5 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Timeline</h5>
+                                  
+                                  {/* Start Date */}
+                                  {milestone.progress_created_at ? (
+                                    <div className="flex items-center space-x-2 text-sm">
+                                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                      <span className="text-gray-600">Started:</span>
+                                      <span className="font-medium text-blue-700">
+                                        {new Date(milestone.progress_created_at).toLocaleDateString('en-US', {
+                                          year: 'numeric',
+                                          month: 'short',
+                                          day: 'numeric'
+                                        })}
+                                      </span>
+                                    </div>
+                                  ) : !milestone.isLocked && milestone.goal_days ? (
+                                    <div className="flex items-center space-x-2 text-sm">
+                                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                                      <span className="text-gray-600">Goal:</span>
+                                      <span className="font-medium text-orange-700">{milestone.goal_days} days</span>
+                                    </div>
+                                  ) : null}
+                                  
+                                  {/* Completion Date */}
+                                  {milestone.completed_at && (
+                                    <div className="flex items-center space-x-2 text-sm">
+                                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                      <span className="text-gray-600">Completed:</span>
+                                      <span className="font-medium text-green-700">
+                                        {new Date(milestone.completed_at).toLocaleDateString('en-US', {
+                                          year: 'numeric',
+                                          month: 'short',
+                                          day: 'numeric'
+                                        })}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
                                 
-                                {!milestone.started_at && !milestone.isLocked && milestone.goal_days && (
-                                  <div className="flex items-center space-x-1 text-orange-600">
-                                    <Target className="w-4 h-4" />
-                                    <span>Goal: {milestone.goal_days} days</span>
-                                  </div>
-                                )}
-                                
-                                {milestone.completed_at && (
-                                  <div className="flex items-center space-x-1 text-green-600">
-                                    <CheckCircle className="w-4 h-4" />
-                                    <span>Completed: {new Date(milestone.completed_at).toLocaleDateString()}</span>
-                                  </div>
-                                )}
-                                
-                                {daysLeft !== null && daysLeft > 0 && (
-                                  <div className="flex items-center space-x-1 text-blue-600">
-                                    <Clock className="w-4 h-4" />
-                                    <span>{daysLeft} days left</span>
-                                  </div>
-                                )}
-                                
-                                {isOverdue && (
-                                  <div className="flex items-center space-x-1 text-red-600">
-                                    <AlertCircle className="w-4 h-4" />
-                                    <span>{milestone.daysOverdue} days overdue</span>
-                                  </div>
-                                )}
+                                <div className="space-y-2">
+                                  <h5 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Progress</h5>
+                                  
+                                  {/* Days Left */}
+                                  {daysLeft !== null && daysLeft > 0 && (
+                                    <div className="flex items-center space-x-2 text-sm">
+                                      <Clock className="w-4 h-4 text-blue-600" />
+                                      <span className="text-gray-600">Time remaining:</span>
+                                      <span className="font-medium text-blue-700">{daysLeft} days</span>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Overdue Status */}
+                                  {isOverdue && (
+                                    <div className="flex items-center space-x-2 text-sm">
+                                      <AlertCircle className="w-4 h-4 text-red-600" />
+                                      <span className="text-gray-600">Overdue by:</span>
+                                      <span className="font-medium text-red-700">{milestone.daysOverdue} days</span>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Completion Time vs Goal */}
+                                  {milestone.completed_at && milestone.progress_created_at && milestone.goal_days && (
+                                    (() => {
+                                      const startDate = new Date(milestone.progress_created_at)
+                                      const endDate = new Date(milestone.completed_at)
+                                      const actualDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+                                      const daysDiff = milestone.goal_days - actualDays
+                                      
+                                      return (
+                                        <div className="flex items-center space-x-2 text-sm">
+                                          <Target className="w-4 h-4 text-purple-600" />
+                                          <span className="text-gray-600">Performance:</span>
+                                          <span className={`font-medium ${
+                                            daysDiff > 0 ? 'text-green-700' : daysDiff < 0 ? 'text-orange-700' : 'text-blue-700'
+                                          }`}>
+                                            {daysDiff > 0 ? `${daysDiff} days ahead` : daysDiff < 0 ? `${Math.abs(daysDiff)} days over` : 'On target'}
+                                          </span>
+                                        </div>
+                                      )
+                                    })()
+                                  )}
+                                </div>
                               </div>
                             </div>
                       </div>
@@ -844,7 +1017,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                           {/* Action Buttons */}
                           <div className="flex items-center space-x-2">
                             {/* Show Start button for unlocked milestones that haven't been started yet */}
-                            {!milestone.isLocked && !milestone.started_at && !milestone.completed && (
+                            {!milestone.isLocked && !milestone.progress_created_at && !milestone.completed && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -859,7 +1032,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
 
                             
                             {/* Show Mark Complete button for milestones that are in progress */}
-                            {!milestone.isLocked && milestone.started_at && !milestone.completed && (
+                            {!milestone.isLocked && milestone.progress_created_at && !milestone.completed && (
                               <Button
                                 variant="default"
                                 size="sm"
@@ -887,7 +1060,7 @@ export function CustomerRoadmap({ customerId }: CustomerRoadmapProps) {
                             )}
                             
                             {/* Debug info for milestone completion */}
-                            {!milestone.isLocked && milestone.started_at && !milestone.completed && (
+                            {!milestone.isLocked && milestone.progress_created_at && !milestone.completed && (
                               <div className="text-xs text-gray-500 mt-1">
                                 Debug: Tasks loaded: {milestone.tasks ? milestone.tasks.length : 0}, 
                                 All completed: {milestone.tasks ? areAllTasksCompleted(milestone) : 'N/A'}
