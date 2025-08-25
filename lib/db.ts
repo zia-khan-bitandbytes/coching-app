@@ -1,12 +1,13 @@
 import { Pool } from 'pg'
 
-// Database configuration
+// Database configuration for Vercel
 const pool = new Pool({
-  user: process.env.DB_USER || 'bitandbytes',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'coaching_app',
-  password: process.env.DB_PASSWORD || '1234',
-  port: parseInt(process.env.DB_PORT || '5432'),
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // Connection pool settings for serverless
+  max: 1,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
 })
 
 // Test the connection
