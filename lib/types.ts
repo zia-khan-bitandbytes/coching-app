@@ -30,6 +30,7 @@ export interface Milestone {
   description: string
   order_index?: number
   isLocked?: boolean
+  goal_days?: number
   tasks: Task[]
 }
 

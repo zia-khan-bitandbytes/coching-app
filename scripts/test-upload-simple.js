@@ -1,79 +1,60 @@
-const fs = require('fs');
+const fs = require('fs')
+const path = require('path')
 
-async function testUploadSimple() {
-  console.log('Testing upload API response structure...\n');
-  
+// Create a simple test file
+const testContent = 'This is a test file for upload testing.'
+const testFilePath = path.join(__dirname, 'test-upload.txt')
+
+// Write test file
+fs.writeFileSync(testFilePath, testContent)
+console.log('✅ Test file created:', testFilePath)
+
+// Test the upload API
+const testUpload = async () => {
   try {
-    // Create a test file
-    const testFilePath = '/tmp/test-file.txt';
-    fs.writeFileSync(testFilePath, 'This is a test file for upload testing.');
+    const FormData = require('form-data')
+    const form = new FormData()
     
-    // Read the file
-    const fileBuffer = fs.readFileSync(testFilePath);
+    // Add the test file
+    form.append('file', fs.createReadStream(testFilePath))
+    form.append('milestoneId', '1')
+    form.append('taskId', '2') // Business Plan task
+    form.append('programId', '1')
     
-    // Create FormData manually
-    const boundary = '----WebKitFormBoundary' + Math.random().toString(16).substr(2);
-    const formData = [
-      `--${boundary}`,
-      'Content-Disposition: form-data; name="file"; filename="test-file.txt"',
-      'Content-Type: text/plain',
-      '',
-      fileBuffer.toString(),
-      `--${boundary}`,
-      'Content-Disposition: form-data; name="milestoneId"',
-      '',
-      '33',
-      `--${boundary}`,
-      'Content-Disposition: form-data; name="coachId"',
-      '',
-      '1',
-      `--${boundary}`,
-      'Content-Disposition: form-data; name="programId"',
-      '',
-      '7',
-      `--${boundary}--`
-    ].join('\r\n');
+    console.log('📤 Testing file upload to Business Plan task...')
     
-    console.log('Uploading test file...');
-    
-    // Make the upload request
-    const response = await fetch('http://localhost:3000/api/upload', {
+    const response = await fetch('http://localhost:3000/api/customer/3/upload', {
       method: 'POST',
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      },
-      body: formData
-    });
-    
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      body: form
+    })
     
     if (response.ok) {
-      const data = await response.json();
-      console.log('✅ Upload successful!');
-      console.log('Response data:', JSON.stringify(data, null, 2));
+      const result = await response.json()
+      console.log('✅ Upload successful:', result)
       
-      if (data.file) {
-        console.log('✅ File object present');
-        console.log('File URL:', data.file.url);
-        console.log('File name:', data.file.name);
-        console.log('File size:', data.file.size);
-      } else {
-        console.log('❌ File object missing from response');
+      // Test if the task now shows the file
+      console.log('\n📋 Checking if task now has files...')
+      const taskResponse = await fetch('http://localhost:3000/api/customer/3/milestones/1/tasks')
+      if (taskResponse.ok) {
+        const taskResult = await taskResponse.json()
+        const businessPlanTask = taskResult.tasks.find(t => t.id === 2)
+        console.log('Business Plan task files:', businessPlanTask.files)
+        console.log('Business Plan task completed:', businessPlanTask.completed)
       }
     } else {
-      console.log('❌ Upload failed:', response.status);
-      const errorData = await response.text();
-      console.log('Error details:', errorData);
+      const error = await response.text()
+      console.log('❌ Upload failed:', response.status, error)
     }
-    
-    // Clean up test file
-    fs.unlinkSync(testFilePath);
-    
   } catch (error) {
-    console.error('❌ Test failed:', error.message);
+    console.error('❌ Error testing upload:', error)
   }
 }
 
-// Run the test
-testUploadSimple().catch(console.error); 
+// Check if fetch is available
+if (typeof fetch === 'undefined') {
+  console.log('⚠️  Fetch not available, install node-fetch or use Node 18+')
+  console.log('📁 Test file created at:', testFilePath)
+  console.log('🔧 You can test the upload manually in the browser')
+} else {
+  testUpload()
+} 

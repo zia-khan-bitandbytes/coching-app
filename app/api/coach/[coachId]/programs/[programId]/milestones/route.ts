@@ -3,10 +3,17 @@ import pool from '@/lib/db'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { coachId: string; programId: string } }
+  { params }: { params: Promise<{ coachId: string; programId: string }> }
 ) {
   try {
     const { coachId, programId } = await params
+
+    if (!coachId || !programId) {
+      return NextResponse.json(
+        { success: false, error: 'Coach ID and Program ID are required' },
+        { status: 400 }
+      )
+    }
 
     // Verify the program belongs to the coach
     const programCheck = await pool.query(`
@@ -21,36 +28,80 @@ export async function GET(
       )
     }
 
-    // Get milestones for the specific program
+    // First get basic milestones
     const milestonesResult = await pool.query(`
       SELECT 
         m.id,
         m.title,
         m.description,
         m.order_index,
+        m.goal_days,
         m.created_at,
-        COUNT(DISTINCT mp.user_id) as completed_count,
         COUNT(DISTINCT up.user_id) as total_enrolled
       FROM milestones m
       LEFT JOIN user_programs up ON up.program_id = m.program_id AND up.status = 'active'
-      LEFT JOIN milestone_progress mp ON m.id = mp.milestone_id AND mp.completed = true
       WHERE m.program_id = $1
-      GROUP BY m.id, m.title, m.description, m.order_index, m.created_at
+      GROUP BY m.id, m.title, m.description, m.order_index, m.goal_days, m.created_at
       ORDER BY m.order_index
     `, [programId])
 
-    const milestones = milestonesResult.rows.map(row => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      order_index: parseInt(row.order_index),
-      created_at: row.created_at,
-      completed_count: parseInt(row.completed_count),
-      total_enrolled: parseInt(row.total_enrolled),
-      completion_rate: row.total_enrolled > 0 
-        ? Math.round((row.completed_count / row.total_enrolled) * 100) 
+    // Then get completion data for each milestone (with safety checks)
+    let completionDataResult
+    try {
+      completionDataResult = await pool.query(`
+        SELECT 
+          mp.milestone_id,
+          AVG(EXTRACT(EPOCH FROM (mp.completed_at - up.enrolled_at)) / 86400) as avg_completion_days,
+          COUNT(DISTINCT mp.user_id) as completed_count
+        FROM milestone_progress mp
+        JOIN user_programs up ON mp.user_id = up.user_id 
+        WHERE mp.completed = true 
+          AND up.program_id = $1 
+          AND up.status = 'active'
+          AND mp.milestone_id IN (SELECT id FROM milestones WHERE program_id = $1)
+        GROUP BY mp.milestone_id
+      `, [programId])
+    } catch (completionError) {
+      console.log('Non-critical error fetching completion data:', completionError)
+      completionDataResult = { rows: [] }
+    }
+
+    // Create a map of completion data for quick lookup
+    const completionMap = new Map()
+    completionDataResult.rows.forEach(row => {
+      completionMap.set(row.milestone_id, {
+        avg_completion_days: parseFloat(row.avg_completion_days) || 0,
+        completed_count: parseInt(row.completed_count) || 0
+      })
+    })
+
+    const milestones = milestonesResult.rows.map(row => {
+      const goalDays = row.goal_days || 30
+      const completionData = completionMap.get(row.id) || { avg_completion_days: 0, completed_count: 0 }
+      const avgCompletionDays = completionData.avg_completion_days
+      const completedCount = completionData.completed_count
+      const totalEnrolled = parseInt(row.total_enrolled) || 0
+      
+      const efficiencyScore = goalDays > 0 && avgCompletionDays > 0 
+        ? Math.round((goalDays / avgCompletionDays) * 100 * 100) / 100  // Round to 2 decimal places
         : 0
-    }))
+
+      return {
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        order_index: parseInt(row.order_index),
+        goal_days: goalDays,
+        created_at: row.created_at,
+        completed_count: completedCount,
+        total_enrolled: totalEnrolled,
+        avg_completion_days: avgCompletionDays,
+        efficiency_score: efficiencyScore,
+        completion_rate: totalEnrolled > 0 
+          ? Math.round((completedCount / totalEnrolled) * 100) 
+          : 0
+      }
+    })
 
     return NextResponse.json({
       success: true,
@@ -67,11 +118,19 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { coachId: string; programId: string } }
+  { params }: { params: Promise<{ coachId: string; programId: string }> }
 ) {
   try {
     const { coachId, programId } = await params
-    const { title, description } = await request.json()
+    
+    if (!coachId || !programId) {
+      return NextResponse.json(
+        { success: false, error: 'Coach ID and Program ID are required' },
+        { status: 400 }
+      )
+    }
+
+    const { title, description, goal_days } = await request.json()
 
     // Verify the program belongs to the coach
     const programCheck = await pool.query(`
@@ -95,12 +154,12 @@ export async function POST(
     
     const nextOrderIndex = maxOrderResult.rows[0].max_order + 1
 
-    // Create new milestone with auto-incremented order_index
+    // Create new milestone with auto-incremented order_index and goal_days
     const result = await pool.query(`
-      INSERT INTO milestones (program_id, title, description, order_index)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, title, description, order_index, created_at
-    `, [programId, title, description, nextOrderIndex])
+      INSERT INTO milestones (program_id, title, description, order_index, goal_days)
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING id, title, description, order_index, goal_days, created_at
+    `, [programId, title, description, nextOrderIndex, goal_days || 30])
 
     const newMilestone = result.rows[0]
 
@@ -111,6 +170,7 @@ export async function POST(
         title: newMilestone.title,
         description: newMilestone.description,
         order_index: parseInt(newMilestone.order_index),
+        goal_days: newMilestone.goal_days,
         program_id: parseInt(programId),
         created_at: newMilestone.created_at
       }
@@ -124,9 +184,83 @@ export async function POST(
   }
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ coachId: string; programId: string }> }
+) {
+  try {
+    const { coachId, programId } = await params
+    const url = new URL(request.url)
+    const milestoneId = url.searchParams.get('milestoneId')
+    const { title, description, goal_days } = await request.json()
+    
+    if (!milestoneId) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone ID is required' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the program belongs to the coach
+    const programCheck = await pool.query(`
+      SELECT id FROM coaching_programs 
+      WHERE id = $1 AND coach_id = $2
+    `, [programId, coachId])
+
+    if (programCheck.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Program not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    // Verify the milestone belongs to the program
+    const milestoneCheck = await pool.query(`
+      SELECT id FROM milestones 
+      WHERE id = $1 AND program_id = $2
+    `, [milestoneId, programId])
+
+    if (milestoneCheck.rows.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Milestone not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    // Update the milestone
+    const result = await pool.query(`
+      UPDATE milestones 
+      SET title = $1, description = $2, goal_days = $3
+      WHERE id = $4 AND program_id = $5
+      RETURNING id, title, description, order_index, goal_days, created_at
+    `, [title, description, goal_days, milestoneId, programId])
+
+    const updatedMilestone = result.rows[0]
+
+    return NextResponse.json({
+      success: true,
+      milestone: {
+        id: updatedMilestone.id,
+        title: updatedMilestone.title,
+        description: updatedMilestone.description,
+        order_index: parseInt(updatedMilestone.order_index),
+        goal_days: updatedMilestone.goal_days,
+        program_id: parseInt(programId),
+        created_at: updatedMilestone.created_at
+      }
+    })
+  } catch (error) {
+    console.error('Error updating milestone:', error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to update milestone' },
+      { status: 500 }
+    )
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { coachId: string; programId: string } }
+  { params }: { params: Promise<{ coachId: string; programId: string }> }
 ) {
   try {
     const { coachId, programId } = await params

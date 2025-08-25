@@ -7,7 +7,7 @@ interface User {
   id: string
   email: string
   name: string
-  password: string
+  password_hash: string
   role: 'coach' | 'customer' | 'super_admin'
   created_at: string
 }
@@ -88,28 +88,34 @@ export async function POST(request: NextRequest) {
 
     // Create new user in database
     const result = await pool.query(
-      'INSERT INTO users (email, name, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
+      'INSERT INTO users (email, name, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING *',
       [email.toLowerCase(), name, hashedPassword, role]
     )
 
     const newUser = result.rows[0] as User
 
+    // If user is a coach, automatically create a coach record
+    if (role === 'coach') {
+      try {
+        await pool.query(
+          'INSERT INTO coaches (user_id, business_name, bio, specialization) VALUES ($1, $2, $3, $4)',
+          [newUser.id, `${name}'s Coaching Business`, `Welcome to ${name}'s coaching services`, 'General Coaching']
+        )
+        console.log(`Created coach record for user ${newUser.id}`)
+      } catch (coachError) {
+        console.error('Error creating coach record:', coachError)
+        // Don't fail the signup if coach record creation fails
+        // The user can still access the system, they just won't be able to create programs
+      }
+    }
+
     // Return user data (without password)
-    const { password: _, ...userWithoutPassword } = newUser
+    const { password_hash: _, ...userWithoutPassword } = newUser
     
     const response = NextResponse.json({
       message: `${role === 'coach' ? 'Coach' : 'Customer'} account created successfully`,
       user: userWithoutPassword
     }, { status: 201 })
-    
-    // Set user cookie to automatically log in the user
-    response.cookies.set('user', JSON.stringify(userWithoutPassword), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: '/'
-    })
     
     return response
 

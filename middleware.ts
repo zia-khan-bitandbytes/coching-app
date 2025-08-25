@@ -40,6 +40,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(dashboardUrl)
   }
 
+  // For API routes, add user ID to headers for authentication
+  if (pathname.startsWith('/api')) {
+    const response = NextResponse.next()
+    response.headers.set('x-user-id', user.id.toString())
+    return response
+  }
+
   return NextResponse.next()
 }
 

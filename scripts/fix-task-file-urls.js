@@ -18,7 +18,7 @@ async function fixTaskFileUrls() {
       
       try {
         // Parse files from description
-        const filesMatch = task.description.match(/\[FILES:(.*?)\]$/)
+        const filesMatch = task.description.match(/\[FILES:([\s\S]*?)\]$/)
         if (filesMatch) {
           const files = JSON.parse(filesMatch[1])
           console.log(`Found ${files.length} files in task ${task.id}`)
@@ -75,7 +75,7 @@ async function fixTaskFileUrls() {
           
           // Update the description with the new file data
           const filesInfo = JSON.stringify(updatedFiles)
-          const newDescription = task.description.replace(/\n\n\[FILES:.*?\]$/, `\n\n[FILES:${filesInfo}]`)
+          const newDescription = task.description.replace(/\n\n\[FILES:[\s\S]*?\]$/, `\n\n[FILES:${filesInfo}]`)
           
           // Update the task in the database
           await pool.query(`

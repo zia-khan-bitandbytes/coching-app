@@ -132,6 +132,24 @@ export function TaskCreationDialog({
       return
     }
 
+    if (title.length > 50) {
+      toast({
+        title: "Error",
+        description: "Task title must be 50 characters or less",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (description.length > 250) {
+      toast({
+        title: "Error",
+        description: "Task description must be 250 characters or less",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -239,7 +257,12 @@ export function TaskCreationDialog({
                 onChange={(e) => setTitle(e.target.value)}
                 required
                 disabled={isLoading}
+                maxLength={50}
               />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Maximum 50 characters</span>
+                <span>{title.length}/50</span>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="description">Description (Optional)</Label>
@@ -250,7 +273,12 @@ export function TaskCreationDialog({
                 onChange={(e) => setDescription(e.target.value)}
                 rows={3}
                 disabled={isLoading}
+                maxLength={250}
               />
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Maximum 250 characters</span>
+                <span>{description.length}/250</span>
+              </div>
             </div>
             
             {/* File Upload Section */}

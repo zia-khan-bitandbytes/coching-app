@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS coaching_programs (
   coach_id INTEGER REFERENCES coaches(id) ON DELETE CASCADE,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  duration_weeks INTEGER,
   price DECIMAL(10,2),
+  duration_days INTEGER DEFAULT 30,  -- Added for one-time payment tracking
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS milestones (
   title VARCHAR(255) NOT NULL,
   description TEXT,
   order_index INTEGER NOT NULL,
+  goal_days INTEGER,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -83,6 +84,18 @@ CREATE TABLE IF NOT EXISTS milestone_progress (
   notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_id, milestone_id)
+);
+
+-- Create task_progress table for tracking individual customer task completion
+CREATE TABLE IF NOT EXISTS task_progress (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+  completed BOOLEAN DEFAULT FALSE,
+  completed_at TIMESTAMP,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, task_id)
 );
 
 -- Create payments table with coach ownership
@@ -149,6 +162,8 @@ CREATE INDEX IF NOT EXISTS idx_milestones_program_id ON milestones(program_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_milestone_id ON tasks(milestone_id);
 CREATE INDEX IF NOT EXISTS idx_milestone_progress_user_id ON milestone_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_milestone_progress_milestone_id ON milestone_progress(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_task_progress_user_id ON task_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_task_progress_task_id ON task_progress(task_id);
 CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id);
 CREATE INDEX IF NOT EXISTS idx_payments_program_id ON payments(program_id);
 CREATE INDEX IF NOT EXISTS idx_messages_coach_id ON messages(coach_id);
@@ -163,6 +178,7 @@ CREATE TABLE IF NOT EXISTS task_files (
     id SERIAL PRIMARY KEY,
     task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
     milestone_id INTEGER REFERENCES milestones(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     file_name VARCHAR(255) NOT NULL,
     original_name VARCHAR(255) NOT NULL,
     file_path VARCHAR(500) NOT NULL,
@@ -175,6 +191,7 @@ CREATE TABLE IF NOT EXISTS task_files (
 -- Add index for better performance
 CREATE INDEX IF NOT EXISTS idx_task_files_task_id ON task_files(task_id);
 CREATE INDEX IF NOT EXISTS idx_task_files_milestone_id ON task_files(milestone_id);
+CREATE INDEX IF NOT EXISTS idx_task_files_user_id ON task_files(user_id);
 
 -- Insert sample super admin user
 INSERT INTO users (email, name, password, role) VALUES
@@ -205,13 +222,13 @@ INSERT INTO users (email, name, password, role) VALUES
 ON CONFLICT DO NOTHING;
 
 -- Insert coach programs
-INSERT INTO coaching_programs (coach_id, name, description, duration_weeks, price) VALUES
-  ((SELECT id FROM coaches WHERE business_name = 'Business Growth Academy'), 'Startup to Scale', 'Complete guide to scaling your startup from 0 to 1000 customers', 12, 2999.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Business Growth Academy'), 'Revenue Optimization', 'Maximize your business revenue through strategic optimization', 8, 1999.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Leadership Excellence'), 'Executive Leadership', 'Develop executive-level leadership skills for C-suite positions', 10, 3499.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Leadership Excellence'), 'Team Management', 'Master the art of building and managing high-performing teams', 6, 1499.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Sales Mastery Institute'), 'B2B Sales Mastery', 'Dominate B2B sales with proven strategies and techniques', 12, 3999.00),
-  ((SELECT id FROM coaches WHERE business_name = 'Sales Mastery Institute'), 'Sales Team Training', 'Train your sales team to achieve consistent results', 8, 2499.00)
+INSERT INTO coaching_programs (coach_id, name, description, price) VALUES
+  ((SELECT id FROM coaches WHERE business_name = 'Business Growth Academy'), 'Startup to Scale', 'Complete guide to scaling your startup from 0 to 1000 customers', 2999.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Business Growth Academy'), 'Revenue Optimization', 'Maximize your business revenue through strategic optimization', 1999.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Leadership Excellence'), 'Executive Leadership', 'Develop executive-level leadership skills for C-suite positions', 3499.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Leadership Excellence'), 'Team Management', 'Master the art of building and managing high-performing teams', 1499.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Sales Mastery Institute'), 'B2B Sales Mastery', 'Dominate B2B sales with proven strategies and techniques', 3999.00),
+  ((SELECT id FROM coaches WHERE business_name = 'Sales Mastery Institute'), 'Sales Team Training', 'Train your sales team to achieve consistent results', 2499.00)
 ON CONFLICT DO NOTHING;
 
 -- Insert milestones for programs

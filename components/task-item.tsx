@@ -42,6 +42,21 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
+  // Function to clean task description by removing [FILES:...] JSON data
+  const cleanTaskDescription = (description: string) => {
+    if (!description || !description.includes('[FILES:')) {
+      return description
+    }
+    
+    try {
+      // Remove the files section from description for display
+      return description.replace(/\n\n\[FILES:[\s\S]*?\]$/, '')
+    } catch (error) {
+      console.error('Error cleaning task description:', error)
+      return description
+    }
+  }
+
   // Check if all previous tasks are completed
   const canCompleteTask = () => {
     if (allTasks.length === 0) return true
@@ -327,7 +342,7 @@ export function TaskItem({ task, onDelete, onUpdate, coachId, programId, milesto
               </span>
             </div>
             {task.description && (
-              <p className="text-xs text-gray-500 mt-1">{task.description}</p>
+              <p className="text-xs text-gray-500 mt-1">{cleanTaskDescription(task.description)}</p>
             )}
             
             {/* Display uploaded files */}

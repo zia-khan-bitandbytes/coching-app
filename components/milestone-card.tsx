@@ -50,12 +50,34 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
       
       if (data.success) {
         // Convert database tasks to match the expected format
-        const formattedTasks = data.tasks.map((task: any) => ({
-          ...task,
-          status: task.completed ? "completed" : "in-progress",
-          requiresUpload: task.requiresUpload || false,
-          files: task.files || []
-        }))
+        const formattedTasks = data.tasks.map((task: any) => {
+          let files = task.files || []
+          
+          // Only parse files from description if this is a coach view (no customerId)
+          // For customer views, only show files from the task.files array (customer-specific)
+          if (!customerId && files.length === 0 && task.description && task.description.includes('[FILES:')) {
+            try {
+              // Use a more flexible regex that handles newlines and multiline content
+              const filesMatch = task.description.match(/\[FILES:([\s\S]*?)\]$/)
+              if (filesMatch) {
+                files = JSON.parse(filesMatch[1])
+                // Remove the files section from description for display
+                const cleanDescription = task.description.replace(/\n\n\[FILES:[\s\S]*?\]$/, '')
+                task.description = cleanDescription
+              }
+            } catch (parseError) {
+              console.error('Error parsing files from description:', parseError)
+              files = []
+            }
+          }
+          
+          return {
+            ...task,
+            status: task.completed ? "completed" : "in-progress",
+            requiresUpload: task.requiresUpload || false,
+            files: files
+          }
+        })
         setTasks(formattedTasks)
       }
     } catch (error) {
@@ -67,12 +89,32 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
 
   const handleTaskCreated = (newTask: any) => {
     console.log('Handling task created:', newTask)
+    
+    let files = newTask.files || []
+    
+    // Only parse files from description if this is a coach view (no customerId)
+    if (!customerId && files.length === 0 && newTask.description && newTask.description.includes('[FILES:')) {
+      try {
+        // Use a more flexible regex that handles newlines and multiline content
+        const filesMatch = newTask.description.match(/\[FILES:([\s\S]*?)\]$/)
+        if (filesMatch) {
+          files = JSON.parse(filesMatch[1])
+          // Remove the files section from description for display
+                        const cleanDescription = newTask.description.replace(/\n\n\[FILES:[\s\S]*?\]$/, '')
+          newTask.description = cleanDescription
+        }
+      } catch (parseError) {
+        console.error('Error parsing files from description:', parseError)
+        files = []
+      }
+    }
+    
     // Add the new task to the list with proper formatting
     const formattedTask = {
       ...newTask,
       status: newTask.completed ? "completed" : "in-progress",
       requiresUpload: newTask.requiresUpload || false,
-      files: newTask.files || []
+      files: files
     }
     console.log('Formatted task:', formattedTask)
     console.log('Task files:', formattedTask.files)
@@ -90,14 +132,36 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
 
   const handleTaskUpdated = (taskId: number, updatedTask: any) => {
     // Update the task in the list
-    const updatedTasks = tasks.map(task => 
-      task.id === taskId ? { 
-        ...task, 
-        ...updatedTask,
-        requiresUpload: updatedTask.requiresUpload !== undefined ? updatedTask.requiresUpload : task.requiresUpload,
-        files: updatedTask.files || task.files || []
-      } : task
-    )
+    const updatedTasks = tasks.map(task => {
+      if (task.id === taskId) {
+        let files = updatedTask.files || task.files || []
+        
+        // Only parse files from description if this is a coach view (no customerId)
+        if (!customerId && files.length === 0 && updatedTask.description && updatedTask.description.includes('[FILES:')) {
+          try {
+            // Use a more flexible regex that handles newlines and multiline content
+            const filesMatch = updatedTask.description.match(/\[FILES:([\s\S]*?)\]$/)
+            if (filesMatch) {
+              files = JSON.parse(filesMatch[1])
+              // Remove the files section from description for display
+              const cleanDescription = updatedTask.description.replace(/\n\n\[FILES:[\s\S]*?\]$/, '')
+              updatedTask.description = cleanDescription
+            }
+          } catch (parseError) {
+            console.error('Error parsing files from description:', parseError)
+            files = []
+          }
+        }
+        
+        return {
+          ...task,
+          ...updatedTask,
+          requiresUpload: updatedTask.requiresUpload !== undefined ? updatedTask.requiresUpload : task.requiresUpload,
+          files: files
+        }
+      }
+      return task
+    })
     setTasks(updatedTasks)
 
     // Note: We no longer automatically update milestone status when all tasks are completed
@@ -210,7 +274,34 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
 
   const handleSaveEdit = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (onEdit && editTitle.trim()) {
+    if (!editTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Milestone title is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (editTitle.length > 50) {
+      toast({
+        title: "Error",
+        description: "Milestone title must be 50 characters or less",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (editDescription.length > 250) {
+      toast({
+        title: "Error",
+        description: "Milestone description must be 250 characters or less",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (onEdit) {
       onEdit(milestone.id, editTitle.trim(), editDescription.trim())
       setIsEditing(false)
     }
@@ -279,22 +370,36 @@ export function MilestoneCard({ milestone, isExpanded, onToggle, onDelete, onEdi
             )}
             {isEditing ? (
               <div className="flex-1 space-y-2">
-                <input
-                  type="text"
-                  value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full text-lg font-semibold border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Milestone title"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <textarea
-                  value={editDescription}
-                  onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  placeholder="Milestone description"
-                  rows={2}
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    className="w-full text-lg font-semibold border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Milestone title"
+                    onClick={(e) => e.stopPropagation()}
+                    maxLength={50}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Max 50 characters</span>
+                    <span>{editTitle.length}/50</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    className="w-full text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                    placeholder="Milestone description"
+                    rows={2}
+                    onClick={(e) => e.stopPropagation()}
+                    maxLength={250}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Max 250 characters</span>
+                    <span>{editDescription.length}/250</span>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-2">

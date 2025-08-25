@@ -35,12 +35,6 @@ function CoachDashboardContent({ user }: CoachDashboardContentProps) {
   if (activeSection === "overview" || activeSection === "dashboard") {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-            <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-          </div>
-        </div>
         <CoachDashboard coachId={user.coach_id || user.id} />
       </div>
     )
@@ -59,19 +53,13 @@ function CoachDashboardContent({ user }: CoachDashboardContentProps) {
             <p className="text-gray-600 mt-1">Manage your coaching members</p>
           </div>
         </div>
-        <MemberManagement />
+        <MemberManagement coachId={user.coach_id || user.id} />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Coach Dashboard</h1>
-          <p className="text-gray-600 mt-1">Overview of your coaching business performance</p>
-        </div>
-      </div>
       <CoachDashboard coachId={user.coach_id || user.id} />
     </div>
   )
@@ -139,13 +127,7 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
     }
   }
 
-  const switchToAdmin = () => {
-    router.push("/admin")
-  }
 
-  const switchToClient = () => {
-    router.push("/dashboard")
-  }
 
   if (!user) {
     return <div>Loading...</div>
@@ -189,7 +171,7 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
             <div className="flex items-center gap-6">
               {isCoach ? (
                 <div className="flex items-center">
-                  <h1 className="text-2xl font-bold text-gray-900">{user.business_name || 'Coach Dashboard'}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">COACHING XYZ</h1>
                   <span className="ml-4 text-sm text-gray-600">Coach: {user.name}</span>
                 </div>
               ) : isCustomer ? (
@@ -211,17 +193,12 @@ export function DashboardLayout({ children, isAdmin: propsIsAdmin }: DashboardLa
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="flex items-center gap-2">
                       <span className="text-sm text-gray-600">
-                        {isCoach ? `${user.business_name} - ${user.name}` : user.name}
+                        {user.name}
                       </span>
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    {isCoach ? (
-                      <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
-                    ) : (
-                      <DropdownMenuItem onClick={switchToAdmin}>Switch to Admin</DropdownMenuItem>
-                    )}
                     {isCustomer && (
                       <DropdownMenuItem asChild>
                         <a href="/customer/settings">Edit Profile</a>

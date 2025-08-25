@@ -14,13 +14,12 @@ export async function GET(
         cp.id,
         cp.name,
         cp.description,
-        cp.duration_weeks,
         cp.price,
         COUNT(up.id) as enrolled_customers
       FROM coaching_programs cp
       LEFT JOIN user_programs up ON cp.id = up.program_id AND up.status = 'active'
       WHERE cp.coach_id = $1
-      GROUP BY cp.id, cp.name, cp.description, cp.duration_weeks, cp.price
+      GROUP BY cp.id, cp.name, cp.description, cp.price
       ORDER BY cp.created_at DESC
     `, [coachId])
 
@@ -28,7 +27,6 @@ export async function GET(
       id: row.id,
       name: row.name,
       description: row.description,
-      duration_weeks: parseInt(row.duration_weeks),
       price: parseFloat(row.price),
       enrolled_customers: parseInt(row.enrolled_customers)
     }))

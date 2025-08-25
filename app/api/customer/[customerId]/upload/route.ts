@@ -9,13 +9,26 @@ export async function POST(
   { params }: { params: Promise<{ customerId: string }> }
 ) {
   try {
+    console.log('=== Customer Upload API Called ===')
+    
     const { customerId } = await params
+    console.log('Customer ID:', customerId)
+    
     const formData = await request.formData()
     const file = formData.get('file') as File
     const milestoneId = formData.get('milestoneId') as string
     const taskId = formData.get('taskId') as string
 
+    console.log('Form data:', { 
+      milestoneId, 
+      taskId, 
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type
+    })
+
     if (!file) {
+      console.log('No file provided')
       return NextResponse.json({ 
         success: false, 
         error: 'No file provided' 
@@ -23,6 +36,7 @@ export async function POST(
     }
 
     if (!milestoneId || !taskId) {
+      console.log('Missing parameters:', { milestoneId, taskId })
       return NextResponse.json({ 
         success: false, 
         error: 'Missing required parameters' 
@@ -30,6 +44,7 @@ export async function POST(
     }
 
     // Verify the customer has access to this milestone and task
+    console.log('Verifying customer access...')
     const verificationResult = await pool.query(`
       SELECT t.id, m.id as milestone_id, cp.coach_id, cp.id as program_id
       FROM tasks t
@@ -39,7 +54,10 @@ export async function POST(
       WHERE t.id = $1 AND m.id = $2 AND up.user_id = $3
     `, [taskId, milestoneId, customerId])
 
+    console.log('Verification result rows:', verificationResult.rows.length)
+
     if (verificationResult.rows.length === 0) {
+      console.log('Access denied')
       return NextResponse.json({ 
         success: false, 
         error: 'Task not found or access denied' 
@@ -47,19 +65,26 @@ export async function POST(
     }
 
     const taskData = verificationResult.rows[0]
-    const coachId = taskData.coach_id
-    const programId = taskData.program_id
+    const coachId = taskData.coach_id.toString()
+    const programId = taskData.program_id.toString()
+
+    console.log('Task data:', taskData)
 
     // Create uploads directory if it doesn't exist
     const uploadsDir = join(process.cwd(), 'public', 'uploads')
+    console.log('Uploads directory:', uploadsDir)
+    
     if (!existsSync(uploadsDir)) {
+      console.log('Creating uploads directory...')
       await mkdir(uploadsDir, { recursive: true })
     }
 
     // Create subdirectories for better organization
-    const coachDir = join(uploadsDir, coachId)
-    const programDir = join(coachDir, programId)
-    const milestoneDir = join(programDir, milestoneId)
+    const coachDir = join(uploadsDir, coachId.toString())
+    const programDir = join(coachDir, programId.toString())
+    const milestoneDir = join(programDir, milestoneId.toString())
+    
+    console.log('Creating directories:', { coachDir, programDir, milestoneDir })
     
     if (!existsSync(coachDir)) {
       await mkdir(coachDir, { recursive: true })
@@ -74,14 +99,17 @@ export async function POST(
     // Generate unique filename
     const timestamp = Date.now()
     const originalName = file.name
-    const fileExtension = originalName.split('.').pop()
     const fileName = `${timestamp}_${originalName.replace(/[^a-zA-Z0-9.-]/g, '_')}`
     const filePath = join(milestoneDir, fileName)
+
+    console.log('Saving file to:', filePath)
 
     // Convert file to buffer and save
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     await writeFile(filePath, buffer)
+
+    console.log('File saved successfully')
 
     // Generate public URL
     const publicUrl = `/api/files/${coachId}/${programId}/${milestoneId}/${fileName}`
@@ -90,21 +118,25 @@ export async function POST(
     let fileRecord
     try {
       const result = await pool.query(`
-        INSERT INTO task_files (milestone_id, file_name, original_name, file_path, file_size, file_type, uploaded_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO task_files (task_id, milestone_id, user_id, file_name, original_name, file_path, file_size, file_type, uploaded_by, created_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING id, file_name, original_name, file_path, file_size, file_type, created_at
       `, [
+        taskId,
         milestoneId,
+        customerId,
         fileName,
         originalName,
         publicUrl,
         file.size,
         file.type,
-        customerId
+        `Customer ${customerId}`,
+        new Date()
       ])
       fileRecord = result.rows[0]
       console.log('File stored in database:', fileRecord)
     } catch (error) {
+      console.error('Database error:', error)
       // If table doesn't exist, create a simple file record
       console.log('task_files table not found, using fallback')
       fileRecord = {
@@ -113,9 +145,11 @@ export async function POST(
         file_size: file.size,
         file_type: file.type,
         file_path: publicUrl,
-        created_at: new Date().toISOString()
+        created_at: new Date()
       }
     }
+
+    console.log('File record:', fileRecord)
 
     // Update the task to include the uploaded file
     const taskResult = await pool.query(`
@@ -130,10 +164,10 @@ export async function POST(
       // Parse existing files if any
       if (currentDescription && currentDescription.includes('[FILES:')) {
         try {
-          const filesMatch = currentDescription.match(/\[FILES:(.*?)\]$/)
+          const filesMatch = currentDescription.match(/\[FILES:([\s\S]*?)\]$/)
           if (filesMatch) {
             files = JSON.parse(filesMatch[1])
-            cleanDescription = currentDescription.replace(/\n\n\[FILES:.*?\]$/, '')
+            cleanDescription = currentDescription.replace(/\n\n\[FILES:[\s\S]*?\]$/, '')
           }
         } catch (error) {
           console.error('Error parsing existing files:', error)
@@ -144,7 +178,7 @@ export async function POST(
       const newFile = {
         id: fileRecord.id,
         name: fileRecord.original_name,
-        size: fileRecord.file_size,
+        size: parseInt(fileRecord.file_size), // Convert to number
         type: fileRecord.file_type,
         url: fileRecord.file_path,
         uploadedAt: fileRecord.created_at
@@ -160,14 +194,18 @@ export async function POST(
         SET description = $1
         WHERE id = $2
       `, [newDescription, taskId])
+
+      console.log('Task updated with new file')
     }
+
+    console.log('Upload completed successfully')
 
     return NextResponse.json({
       success: true,
       file: {
         id: fileRecord.id,
         name: fileRecord.original_name,
-        size: fileRecord.file_size,
+        size: parseInt(fileRecord.file_size), // Convert to number
         type: fileRecord.file_type,
         url: fileRecord.file_path,
         uploadedAt: fileRecord.created_at
@@ -175,10 +213,12 @@ export async function POST(
     })
 
   } catch (error) {
-    console.error('Error uploading file:', error)
+    console.error('Error in customer upload:', error)
+    console.error('Error stack:', (error as Error).stack)
     return NextResponse.json({ 
       success: false, 
-      error: 'Failed to upload file' 
+      error: 'Failed to upload file',
+      details: (error as Error).message
     }, { status: 500 })
   }
 } 
